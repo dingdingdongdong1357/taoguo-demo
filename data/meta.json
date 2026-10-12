@@ -1,0 +1,45 @@
+{
+ "area": "中壢火車站周邊",
+ "bbox": [
+  121.208,
+  24.944,
+  121.242,
+  24.968
+ ],
+ "years": [
+  2019,
+  2020,
+  2021,
+  2022,
+  2023,
+  2024,
+  2025
+ ],
+ "recent": [
+  2023,
+  2025
+ ],
+ "acc_high_threshold": 64,
+ "report_high_threshold": 20,
+ "weather_storm": 40,
+ "weather_cloudy": 12,
+ "snap_m": 35,
+ "cluster_m": 30,
+ "n_intersections_found": 113,
+ "seed": 20261013,
+ "accidents_2019_2025": 33685,
+ "accidents_recent": 13742,
+ "a1_recent": 15,
+ "share_recent_at_intersections": 0.298,
+ "quadrants": {
+  "priority": 11,
+  "blind": 7,
+  "prevent": 7,
+  "calm": 4
+ },
+ "sources": {
+  "accidents": "桃園市政府開放資料「桃園市A1及A2類道路交通事故」https://data.gov.tw/dataset/46364（真實資料）",
+  "roads": "© OpenStreetMap contributors（ODbL）",
+  "reports": "示意資料：由 data-prep/prepare.py 以固定亂數種子產生，非真實市民回報"
+ }
+}

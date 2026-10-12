@@ -1,0 +1,9 @@
+# secrets and local env
+.env
+*.env
+# raw downloads (re-fetch with data-prep/fetch_*.py)
+data-prep/raw/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db

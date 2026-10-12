@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>差一點地圖</title>
+<meta name="description" content="市民回報差點出事的路口，和真實事故資料一起看，提早找出危險路口。中壢火車站周邊 Demo。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+  <header class="head">
+    <div class="brand" id="brand">
+      <div><div class="brand-name">差一點地圖</div><div class="brand-sub">中壢火車站周邊・Demo</div></div>
+    </div>
+    <div class="head-tags">
+      <span class="tag real"><i></i>事故：真實資料</span>
+      <span class="tag mock"><i></i>回報：示意資料</span>
+    </div>
+    <button class="btn primary" id="report" type="button">＋ 我要回報</button>
+  </header>
+  <main class="main">
+    <div class="mapwrap">
+      <div id="map" role="region" aria-label="中壢火車站周邊地圖"></div>
+      <p class="maploading" id="maploading">地圖載入中…</p>
+      <div class="mapctl">
+        <div class="seg" id="layers" role="group" aria-label="地圖圖層">
+          <button type="button" data-layer="reports" aria-pressed="true">市民回報</button>
+          <button type="button" data-layer="accidents" aria-pressed="false">真實事故</button>
+          <button type="button" data-layer="compare" aria-pressed="false">兩者對照</button>
+        </div>
+        <div class="chips" id="filters" role="group" aria-label="依運具篩選"></div>
+      </div>
+      <div class="zoomctl"><button type="button" id="zin" aria-label="放大">＋</button><button type="button" id="zout" aria-label="縮小">－</button></div>
+      <div class="maplegend" id="legend"></div>
+      <div class="attrib">道路 © OpenStreetMap contributors・事故 桃園市政府開放資料</div>
+      <section class="phone" id="phone" hidden aria-label="回報（示意）">
+        <div class="phone-top"><b>差一點地圖・回報</b><span class="badge mock">示意</span><button class="x" id="phone-x" type="button" aria-label="關閉">×</button></div>
+        <div class="chat" id="chat" aria-live="polite"></div>
+      </section>
+    </div>
+    <aside class="panel" id="panel" aria-label="路口資訊">
+      <button class="sheet-handle" id="handle" type="button" aria-label="展開或收合資訊"></button>
+      <div class="pin" id="pin"><p class="note">載入中…</p></div>
+    </aside>
+  </main>
+</div>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="js/svg.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
