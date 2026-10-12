@@ -36,6 +36,17 @@
     var hiA = L.real.acc_recent >= S.meta.acc_high_threshold, hiR = L.reports.concern >= S.meta.report_high_threshold;
     return hiA ? (hiR ? "priority" : "blind") : (hiR ? "prevent" : "calm");
   }
+  /* Same template as data-prep/prepare.py, recomputed so it stays true after new reports. */
+  function summaryOf(L) {
+    var r = L.reports, h = r.hours, s = function (a, b) { return sum(h.slice(a, b)); };
+    var bands = [s(6, 10), s(10, 16), s(16, 20), s(20, 24) + s(0, 6)], peak = bands.indexOf(Math.max.apply(null, bands));
+    var top = USERS.slice().sort(function (a, b) { return (r.users[b] || 0) - (r.users[a] || 0); })[0];
+    var cats = Object.keys(r.categories).filter(function (c) { return r.categories[c] > 0; }).sort(function (a, b) { return r.categories[b] - r.categories[a]; });
+    var out = r.concern + " 位用路人回報這裡，以" + top + "為主，多在" + TIMES[peak][0] + "。";
+    if (cats.length) out += "最常提到的是「" + cats[0] + "」" + (cats[1] ? "，其次是「" + cats[1] + "」" : "") + "。";
+    if (r.praise) out += "另有 " + r.praise + " 人表示這裡「變好了」。";
+    return out;
+  }
   function refresh(L) {
     L.weather = weatherOf(L);
     L.quadrant = quadOf(L);
@@ -96,6 +107,7 @@
       buildMarkers();
       fitAll(false);
       onZoom();
+      applyHash();
       document.body.dataset.mapReady = "1";
     });
     map.on("zoom", onZoom);
@@ -318,7 +330,7 @@
       '<div class="ulegend">' + USERS.map(function (u) { return '<span><i style="background:' + K.userColor(u) + '"></i>' + u + " " + (r.users[u] || 0) + "</span>"; }).join("") + "</div>" +
       '<div class="actions"><button class="btn primary" id="metoo">我也遇過</button><button class="btn" id="better">這裡變好了</button></div></div>' +
 
-      '<div class="sec"><div class="sec-h"><h3>AI 摘要</h3><span class="badge mock">示意</span></div><p class="summary">' + esc(L.summary) + "</p></div>" +
+      '<div class="sec"><div class="sec-h"><h3>AI 摘要</h3><span class="badge mock">示意</span></div><p class="summary">' + esc(summaryOf(L)) + "</p></div>" +
 
       '<div class="sec"><div class="sec-h"><h3>什麼時候、遇到什麼</h3><span class="badge mock">示意</span></div>' +
       '<div class="twocol"><div>' + K.ring24(r.hours, 128) + '</div><div class="bars">' +
@@ -537,6 +549,29 @@
       R.scroll();
     }
   };
+
+  /* Deep links for demos and screenshots: #accidents #compare #profile-L19 #report */
+  function applyHash() {
+    var h = (location.hash || "").slice(1);
+    if (h === "accidents" || h === "compare") setLayer(h);
+    var m = /^profile-(L\d+)$/.exec(h);
+    if (m && S.byId[m[1]]) select(m[1], true);
+    if (h === "report") {
+      var L = S.locs.filter(function (x) { return x.quadrant === "prevent"; }).sort(function (a, b) { return b.reports.concern - a.reports.concern; })[0];
+      select(L.id, false);
+      S.me = { user: "機車", color: COLORS[0] };
+      R.open({ loc: L.id, mode: "concern" });
+      var pick = function (t) {
+        var b = [].slice.call(document.querySelectorAll("#chat .opt")).filter(function (x) { return x.textContent === t; }).pop();
+        if (b) b.click();
+      };
+      var top = Object.keys(L.reports.categories).sort(function (a, b) { return L.reports.categories[b] - L.reports.categories[a]; })[0];
+      pick(top); pick("下班尖峰"); pick("差點發生事故");
+      var ta = $("rtext");
+      if (ta) ta.value = "右轉時轉角被擋住，看不到斑馬線上的人。";
+      pick("送出");
+    }
+  }
 
   /* ---------------- boot ---------------- */
   function boot() {

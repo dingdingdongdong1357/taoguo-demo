@@ -77,6 +77,8 @@
     check(S.markers[L.id].el.querySelector(".n").textContent === String(before + 1), "地圖標記數字同步更新");
     clickOpt("關閉");
     check(document.getElementById("phone").hidden, "回報視窗可以關閉");
+    A.select(L.id, false);
+    check(document.querySelector("#pin .summary").textContent.indexOf((before + 1) + " 位") === 0, "AI 摘要人數同步更新");
   } catch (e) { check(false, "回報流程：" + e.message); }
 
   // quick "我也遇過"
