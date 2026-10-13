@@ -1,4 +1,4 @@
-/* 差一點地圖 demo — map, layers, location profile and the report flow. */
+/* 桃過一劫 demo — map, layers, location profile and the report flow. */
 (function () {
   "use strict";
   var K = window.SVGKit;
@@ -534,7 +534,7 @@
       R.ctx = { loc: opts.loc || null, mode: opts.mode || null, quick: !!opts.quick, cat: null, time: null, freq: null, sev: null, praise: null };
       $("phone").hidden = false;
       $("chat").innerHTML = "";
-      R.bot("嗨！這是「差一點地圖」的回報小幫手（示意）。");
+      R.bot("嗨！這是「桃過一劫」的回報小幫手（示意）。差點出事、好險逃過一劫的地方，都可以跟我說。");
       R.bot('這裡用來回報「差點出事、讓人害怕」的路口。<br><b>緊急狀況</b>（大坑洞、號誌全滅、路樹倒塌）請直接打 <b>1999</b>；有人受傷請打 <b>110／119</b>。');
       if (!S.me) R.stepAvatar(); else R.afterAvatar();
     },
