@@ -60,7 +60,7 @@
 
   // stage timeline and causes — B4, B7, D4
   var U = S.locs.filter(function (x) { return x.timeline.some(function (t) { return t.type === "update"; }); })[0];
-  var N = S.locs.filter(function (x) { return !x.timeline.some(function (t) { return t.type === "update"; }); })[0];
+  var N = S.locs.filter(function (x) { return !x.timeline.some(function (t) { return t.type === "update"; }) && !(x.repairs || []).length; })[0];
   A.select(U.id, false);
   check(document.querySelectorAll("#pin .tl-upd").length >= 1 && !!document.querySelector("#pin .cmp"), "有市府更新的路口顯示時間線與改善前後比較");
   check(!document.getElementById("better").disabled, "市府更新後可以按「這裡變好了」");
@@ -178,17 +178,19 @@
     var C1 = S.locs.filter(function (x) { return x.route === "district"; })[0];
     var card = document.getElementById("case-" + C1.id);
     check(card.querySelector(".case-ai").textContent.indexOf(C1.reports.concern + " 位") >= 0 && card.querySelectorAll(".case-causes li").length > 0, "案件卡有 AI 摘要與具體原因");
-    card.querySelector('[data-act="1999"]').click();
-    var pre = document.querySelector("#area-" + C1.id + " pre");
-    check(!!pre && JSON.parse(pre.textContent).lat === C1.lat, "產生 1999 案件顯示 Open311 格式");
-    document.getElementById("case-" + C1.id).querySelector('[data-act="update"]').click();
+    check(!card.querySelector('[data-act="1999"]') && !card.querySelector('[data-act="update"]') && !card.querySelector('[data-act="minor"]'), "沒有獨立的 1999、市府更新、小修按鈕");
+    card.querySelector('[data-act="dispatch"]').click();
+    var pre = document.querySelector("#case-" + C1.id + " .o311 pre");
+    check(C1.case_no && !!pre && JSON.parse(pre.textContent).lat === C1.lat && document.querySelector("#case-" + C1.id + " .sent").textContent.indexOf(C1.case_no) >= 0, "確認派案時自動產生 1999 案件（Open311 格式）");
+    document.getElementById("case-" + C1.id).querySelector('[data-act="done"]').click();
     var f = document.querySelector("#area-" + C1.id + " form");
     f.dispatchEvent(new Event("submit", { cancelable: true }));
-    check(!document.querySelector("#area-" + C1.id + " .gerr").hidden, "發布更新沒填內容會提醒");
-    document.getElementById("u-text-" + C1.id).value = "重劃待轉區、加設機車停等區";
+    check(!document.querySelector("#area-" + C1.id + " .gerr").hidden, "登錄完工沒填內容會提醒");
+    document.getElementById("c-text-" + C1.id).value = "重劃待轉區、加設機車停等區";
+    document.getElementById("c-major-" + C1.id).checked = true;
     f.dispatchEvent(new Event("submit", { cancelable: true }));
     check((C1.repairs || []).some(function (x) { return x.kind === "update" && x.solves.length; }), "發布更新同時寫入維修紀錄與處理的問題");
-    check(C1.timeline.filter(function (t) { return t.type === "update"; }).length >= 1 && C1.reports.concern === 0 && !document.getElementById("case-" + C1.id), "發布更新後開新階段、案件移出清單");
+    check(C1.timeline.filter(function (t) { return t.type === "update"; }).length >= 1 && C1.reports.concern === 0 && !document.getElementById("case-" + C1.id), "重大改善：開新階段、案件移出清單");
     // manual adjustments: owners and this month's plan
     var C3 = S.locs.filter(function (x) { return x.route === "district" && x.id !== C1.id; })[0], ai3 = C3.owners.slice();
     var sel = document.getElementById("case-" + C3.id).querySelector(".oadd");
@@ -197,8 +199,8 @@
     check(C3.owners.indexOf(added) >= 0 && document.getElementById("case-" + C3.id).querySelector(".aiorig"), "承辦可以加入權責單位，並保留 AI 原建議");
     document.getElementById("case-" + C3.id).querySelector('.ox[data-rm="' + added + '"]').click();
     check(C3.owners.join() === ai3.join(), "承辦可以移除權責單位");
-    document.getElementById("case-" + C3.id).querySelector('[data-act="1999"]').click();
-    var j3 = JSON.parse(document.querySelector("#area-" + C3.id + " pre").textContent);
+    document.getElementById("case-" + C3.id).querySelector('[data-act="dispatch"]').click();
+    var j3 = JSON.parse(document.querySelector("#case-" + C3.id + " .o311 pre").textContent);
     check([j3.agency_responsible].concat(j3.agency_assisting ? j3.agency_assisting.split("、") : []).sort().join() === C3.owners.slice().sort().join(), "1999 案件用承辦調整後的權責單位（主責＋協辦）");
     document.getElementById("case-" + C3.id).querySelector('[data-act="defer"]').click();
     var f3 = document.querySelector("#area-" + C3.id + " form");
@@ -211,13 +213,13 @@
     document.querySelector('[data-act="undefer"][data-id="' + C3.id + '"]').click();
     check(C3.route === "district" && !C3.deferred, "可以改回本月處理");
     var C4 = S.locs.filter(function (x) { return ["district", "fast"].indexOf(x.route) >= 0 && x.id !== C1.id && x.id !== C3.id; })[0], n4 = (C4.repairs || []).length;
-    document.getElementById("case-" + C4.id).querySelector('[data-act="minor"]').click();
+    var st4 = C4.timeline.filter(function (t) { return t.type === "stage"; }).length;
+    document.getElementById("case-" + C4.id).querySelector('[data-act="done"]').click();
     var f4 = document.querySelector("#area-" + C4.id + " form");
+    document.getElementById("c-text-" + C4.id).value = "補繪斑馬線、修剪路口行道樹";
     f4.dispatchEvent(new Event("submit", { cancelable: true }));
-    check(!f4.querySelector(".gerr").hidden && (C4.repairs || []).length === n4, "登錄小修沒填內容會擋下");
-    document.getElementById("m-text-" + C4.id).value = "補繪斑馬線、修剪路口行道樹";
-    f4.dispatchEvent(new Event("submit", { cancelable: true }));
-    check(C4.repairs.length === n4 + 1 && C4.repairs[n4].items.length === 2 && C4.repairs[n4].solves.length >= 1 && document.getElementById("case-" + C4.id), "登錄小修：寫入維修紀錄、不開新階段");
+    check(C4.repairs.length === n4 + 1 && C4.repairs[n4].kind === "minor" && C4.repairs[n4].items.length === 2 && C4.repairs[n4].solves.length >= 1, "登錄完工（沒勾重大改善）：寫入維修紀錄");
+    check(C4.timeline.filter(function (t) { return t.type === "stage"; }).length === st4 && C4.stage === "已改善" && !document.getElementById("case-" + C4.id), "沒勾重大改善：不開新階段，案件結案");
     // dispatch: confirm, send back with a reason, reassign; progress update with a month
     var D = S.locs.filter(function (x) { return x.route === "fast"; })[1] || S.locs.filter(function (x) { return x.route === "fast"; })[0];
     document.getElementById("case-" + D.id).querySelector('[data-act="dispatch"]').click();
@@ -242,6 +244,12 @@
     check(D.stage === "已排程" && D.schedule === "2026-12", "承辦更新處理進度為已排程");
     G.setView("citizen"); A.select(D.id, false);
     check(document.getElementById("pin").textContent.indexOf("預計 2026 年 12 月") >= 0 && document.querySelector("#pin .owner.lead"), "市民端看得到處理進度、預計完工月份與主責單位");
+    A.select(C4.id, false);
+    check(!document.getElementById("better").disabled && document.querySelectorAll("#repairs .rp").length === C4.repairs.length, "小修完工後市民一樣可以說「這裡變好了」，維修紀錄看得到");
+    S.board = D.district; A.util.renderOverview();
+    var row = Array.prototype.filter.call(document.querySelectorAll(".board .brow"), function (b) { return b.dataset.id === D.id; })[0];
+    var C3row = Array.prototype.filter.call(document.querySelectorAll(".board .brow"), function (b) { return b.dataset.id === C3.id; })[0];
+    check((!row || row.textContent.indexOf("已排程（12 月）") >= 0) && (!C3row || C3row.textContent.indexOf("已派案") >= 0 || C3row.textContent.indexOf("現勘中") >= 0), "各區排行的標籤顯示市府的處理進度");
     G.setView("gov");
     var C2 = S.locs.filter(function (x) { return x.route === "fast"; })[0];
     document.getElementById("case-" + C2.id).querySelector('[data-act="decline"]').click();

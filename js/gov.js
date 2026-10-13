@@ -57,9 +57,7 @@
       (L.schedule ? '<small class="sched">預計 ' + L.schedule.replace("-", " 年 ") + " 月完工</small>" : "") + '<small class="sched">市民同步看得到</small></div>' +
       '<div class="case-plan"><span class="b-label">本月安排</span><div class="seg plan" role="group" aria-label="本月安排">' +
       '<button type="button" aria-pressed="true">本月處理</button><button type="button" data-act="defer" data-id="' + L.id + '" aria-pressed="false">延到下個月</button></div></div>' +
-      '<div class="case-actions"><button class="btn small" data-act="1999" data-id="' + L.id + '">產生 1999 案件</button>' +
-      '<button class="btn small" data-act="update" data-id="' + L.id + '">發布市府更新</button>' +
-      '<button class="btn small" data-act="minor" data-id="' + L.id + '">登錄小修</button>' +
+      '<div class="case-actions"><button class="btn small" data-act="done" data-id="' + L.id + '">登錄完工</button>' +
       '<button class="btn small" data-act="decline" data-id="' + L.id + '">評估後不改善</button></div>' +
       '<div class="case-area" id="area-' + L.id + '"></div>' +
       "</article>";
@@ -88,7 +86,8 @@
         (L.returned.suggest ? '<button class="btn small" data-act="reassign" data-id="' + L.id + '">改派給 ' + U.esc(L.returned.suggest) + "</button>" : "");
     }
     if (L.dispatched) {
-      out += '<p class="sent">✓ 已派案給 <b>' + U.esc(L.dispatched.lead) + "</b>（" + L.dispatched.date + "）</p>" +
+      out += '<p class="sent">✓ 已派案給 <b>' + U.esc(L.dispatched.lead) + "</b>（" + L.dispatched.date + "）・1999 案號 <b class=\"mono\">" + U.esc(L.case_no) + "</b></p>" +
+        '<details class="o311"><summary>看送進 1999 的資料（Open311 格式，示意）</summary><pre class="json">' + U.esc(JSON.stringify(L.case_req, null, 2)) + "</pre></details>" +
         '<button class="btn small ghost" data-act="return" data-id="' + L.id + '">示範：以 ' + U.esc(L.dispatched.lead) + " 身分退回改派</button>";
     } else {
       out += '<p class="pending">待派案窗口確認：主責 <b>' + U.esc(lead) + "</b></p>" +
@@ -203,6 +202,17 @@
   }
   function itemsOf(text) { return text.split(/[、，,]/).map(function (x) { return x.trim(); }).filter(Boolean); }
 
+  /* Confirming a dispatch opens the 1999 case (Open311 GeoReport v2 style payload); no separate button. */
+  function open1999(L) {
+    L.case_no = L.case_no || "TY-" + today().ym.replace("-", "").slice(2) + "-" + (1000 + parseInt(L.id.slice(1), 10) * 37 % 9000);
+    L.case_req = {
+      service_code: "traffic-safety", service_name: Object.keys(L.reports.categories).sort(function (a, b) { return L.reports.categories[b] - L.reports.categories[a]; })[0],
+      description: U.summaryOf(L), lat: L.lat, long: L.lon, address_string: "桃園市" + L.district + L.name,
+      agency_responsible: leadOf(L), agency_assisting: L.owners.filter(function (o) { return o !== leadOf(L); }).join("、"), requested_datetime: today().date,
+      attributes: { case_no: L.case_no, reports: L.reports.concern, route: L.route, accidents_3y: L.real.acc_recent }
+    };
+  }
+
   function setProgress(L, stage) {
     var area = $("area-" + L.id);
     if (stage !== "已排程") {
@@ -225,7 +235,7 @@
   function act(kind, L) {
     var area = $("area-" + L.id);
     if (kind === "dispatch") {
-      L.dispatched = { lead: leadOf(L), date: today().date.replace(/-/g, "/") }; L.returned = null;
+      L.dispatched = { lead: leadOf(L), date: today().date.replace(/-/g, "/") }; L.returned = null; open1999(L);
       if (L.stage === "收集中") L.stage = "已收到";
       render(); focusCard(L.id); return;
     }
@@ -251,54 +261,31 @@
     if (kind === "reassign") {
       var to2 = L.returned.suggest; aiOwners(L);
       if (L.owners.indexOf(to2) < 0) L.owners = [to2].concat(L.owners);
-      L.lead = to2; L.dispatched = { lead: to2, date: today().date.replace(/-/g, "/") };
+      L.lead = to2; L.dispatched = { lead: to2, date: today().date.replace(/-/g, "/") }; open1999(L);
       logAdjust(L, "改派主責給「" + to2 + "」"); L.returned = null;
       render(); focusCard(L.id); return;
     }
-    if (kind === "1999") {
-      L.case_no = L.case_no || "TY-" + today().ym.replace("-", "").slice(2) + "-" + (1000 + parseInt(L.id.slice(1), 10) * 37 % 9000);
-      var req = {
-        service_code: "traffic-safety", service_name: Object.keys(L.reports.categories)[0],
-        description: U.summaryOf(L), lat: L.lat, long: L.lon, address_string: "桃園市" + L.district + L.name,
-        agency_responsible: leadOf(L), agency_assisting: L.owners.filter(function (o) { return o !== leadOf(L); }).join("、"), requested_datetime: today().date,
-        attributes: { reports: L.reports.concern, route: L.route, accidents_3y: L.real.acc_recent }
-      };
-      area.innerHTML = '<p class="accnote">已產生 1999 案件，案號 <b class="mono">' + L.case_no + '</b>（示意）。正式版會用國際通用的 Open311 格式自動送進 1999 系統：</p><pre class="json">' + U.esc(JSON.stringify(req, null, 2)) + "</pre>";
-      return;
-    }
-    if (kind === "update") {
-      area.innerHTML = '<form class="gform" novalidate><label for="u-text-' + L.id + '">修了什麼（市民會看到）</label>' +
-        '<input id="u-text-' + L.id + '" placeholder="例：重劃待轉區、加設機車停等區">' +
-        '<label for="u-unit-' + L.id + '">負責單位</label><select id="u-unit-' + L.id + '">' + L.owners.map(function (o) { return "<option>" + U.esc(o) + "</option>"; }).join("") + "</select>" +
-        solvesHTML(L, "us-") +
+    if (kind === "done") {
+      area.innerHTML = '<form class="gform" novalidate><label for="c-text-' + L.id + '">修了什麼（市民會看到）</label>' +
+        '<input id="c-text-' + L.id + '" placeholder="例：重劃待轉區、補繪斑馬線">' +
+        '<label for="c-unit-' + L.id + '">施工單位</label><select id="c-unit-' + L.id + '">' + L.owners.map(function (o) { return "<option" + (o === leadOf(L) ? " selected" : "") + ">" + U.esc(o) + "</option>"; }).join("") + "</select>" +
+        solvesHTML(L, "cs-") +
+        '<label class="major"><input type="checkbox" id="c-major-' + L.id + '"> 這是重大改善，要重新比較改善前後的回報數</label>' +
+        '<p class="note">不論是否勾選，都會寫入維修紀錄、通知曾回報的市民、開放「這裡變好了」，並在 1 個月後回診。勾選後時間線會從今天切出新階段（例如重劃待轉區）；補繪標線、修剪樹木這類小修不用勾。</p>' +
         '<p class="gerr" hidden>請填寫「修了什麼」，並勾選處理了哪些問題。</p>' +
-        '<button class="btn small primary" type="submit">發布更新</button></form>';
+        '<button class="btn small primary" type="submit">登錄完工</button></form>';
       area.querySelector("form").addEventListener("submit", function (e) {
         e.preventDefault();
-        var text = $("u-text-" + L.id).value.trim(), solves = pickedSolves(L, "us-");
+        var text = $("c-text-" + L.id).value.trim(), solves = pickedSolves(L, "cs-"), unit = $("c-unit-" + L.id).value;
         if (!text || !solves.length) { area.querySelector(".gerr").hidden = false; return; }
-        publishUpdate(L, text, $("u-unit-" + L.id).value, solves);
-      });
-      $("u-text-" + L.id).focus();
-      return;
-    }
-    if (kind === "minor") {
-      area.innerHTML = '<form class="gform" novalidate><p class="note">小修（例如補繪斑馬線、修剪行道樹）會記在路口的維修紀錄，但不開新階段。</p>' +
-        '<label for="m-text-' + L.id + '">修了什麼（市民會看到）</label><input id="m-text-' + L.id + '" placeholder="例：補繪斑馬線、修剪路口行道樹">' +
-        '<label for="m-unit-' + L.id + '">施工單位</label><select id="m-unit-' + L.id + '">' + L.owners.map(function (o) { return "<option>" + U.esc(o) + "</option>"; }).join("") + "</select>" +
-        solvesHTML(L, "ms-") +
-        '<p class="gerr" hidden>請填寫「修了什麼」，並勾選處理了哪些問題。</p>' +
-        '<button class="btn small primary" type="submit">登錄維修</button></form>';
-      area.querySelector("form").addEventListener("submit", function (e) {
-        e.preventDefault();
-        var text = $("m-text-" + L.id).value.trim(), solves = pickedSolves(L, "ms-");
-        if (!text || !solves.length) { area.querySelector(".gerr").hidden = false; return; }
+        if ($("c-major-" + L.id).checked) { publishUpdate(L, text, unit, solves); return; }
         L.repairs = L.repairs || [];
-        L.repairs.push({ kind: "minor", date: today().date, unit: $("m-unit-" + L.id).value, items: itemsOf(text), solves: solves });
-        replied.push({ name: L.name, text: "登錄小修：" + text + "。市民在路口小檔案的維修紀錄看得到。" });
-        render(); focusCard(L.id);
+        L.repairs.push({ kind: "minor", date: today().date, unit: unit, items: itemsOf(text), solves: solves });
+        L.stage = "已改善"; L.route = "none"; L.route_reason = ""; L.schedule = null;
+        replied.push({ name: L.name, text: "登錄完工：" + text + "（" + unit + "）。曾回報的市民會收到通知，可以說「這裡變好了」，1 個月後回診。" });
+        U.renderMarkers(); render();
       });
-      $("m-text-" + L.id).focus();
+      $("c-text-" + L.id).focus();
       return;
     }
     if (kind === "defer") {
@@ -361,7 +348,7 @@
     r.hours = r.hours.map(function () { return 0; });
     L.stage = "已改善"; L.route = "none"; L.route_reason = "";
     U.refresh(L);
-    replied.push({ name: L.name, text: "已發布更新：" + text + "（" + unit + "）。曾回報的市民會收到通知，市民端已開放「這裡變好了」。" });
+    replied.push({ name: L.name, text: "登錄完工（重大改善，開新階段）：" + text + "（" + unit + "）。曾回報的市民會收到通知，可以說「這裡變好了」，1 個月後回診。" });
     U.renderMarkers(); render(); U.pulse(L.id);
   }
 

@@ -56,7 +56,17 @@
     if (r.praise) out += "另有 " + r.praise + " 人表示這裡「變好了」。";
     return out;
   }
-  function hasUpdate(L) { return L.timeline.some(function (t) { return t.type === "update"; }); }
+  function hasUpdate(L) { return L.timeline.some(function (t) { return t.type === "update"; }); }  // a major fix: opens a new stage
+  function canPraise(L) { return hasUpdate(L) || (L.repairs || []).length > 0; }  // any logged repair opens "這裡變好了"
+  /* What the city has done with a case, for citizens: the monthly quota only sends it; every later step is the city's. */
+  function progressLabel(L) {
+    if (L.route === "next") return "下個月優先";
+    if (L.route !== "district" && L.route !== "fast") return "收集中";
+    if (["現勘中", "已排程", "改善中"].indexOf(L.stage) >= 0)
+      return L.stage + (L.stage === "已排程" && L.schedule ? "（" + (+L.schedule.slice(5)) + " 月）" : "");
+    if (L.dispatched) return "已派案：" + L.dispatched.lead;
+    return "已送市府・待派案";
+  }
   function perMonth(n, months) { return Math.round(n / Math.max(months, 1) * 10) / 10; }
   /* Before/after: compare the last finished stage with the current one, per month (stages differ in length). */
   function compareStages(L) {
@@ -338,12 +348,12 @@
     var rows = S.locs.filter(function (L) { return L.district === d && !L.improved; })
       .sort(function (a, b) { return b.reports.concern - a.reports.concern; }).slice(0, 5);
     return '<div class="sec"><div class="sec-h"><h3>各區關心排行（本月）</h3><span class="badge mock">示意</span></div>' +
-      '<p class="note">每個行政區只跟自己比：每區每月前 ' + S.meta.district_quota + " 名送市府（深藍色），每區名額一樣；回報少但情況嚴重的路口走快速通道。名額滿了的排到下個月優先。</p>" +
+      '<p class="note">每個行政區只跟自己比：每區每月前 ' + S.meta.district_quota + " 名送市府（深藍色，標籤是市府目前的處理進度），每區名額一樣；回報少但情況嚴重的路口走快速通道。名額滿了的排到下個月優先。</p>" +
       '<div class="tabs btabs" role="tablist">' + dists.map(function (x) {
         return '<button role="tab" data-d="' + x + '" aria-selected="' + (x === d) + '">' + x + "</button>";
       }).join("") + "</div>" +
       '<ol class="board">' + rows.map(function (L, i) {
-        return '<li><button class="brow" data-id="' + L.id + '"><b class="mono">' + (i + 1) + '</b><span class="nm">' + esc(L.name) + '</span><span class="mono v">' + L.reports.concern + ' 人</span><span class="rt rt-' + L.route + '">' + (ROUTE[L.route] && ROUTE[L.route].tag ? '<i class="rtb">' + ROUTE[L.route].tag + "</i>" : "") + ROUTE_LABEL[L.route] + "</span></button></li>";
+        return '<li><button class="brow" data-id="' + L.id + '"><b class="mono">' + (i + 1) + '</b><span class="nm">' + esc(L.name) + '</span><span class="mono v">' + L.reports.concern + ' 人</span><span class="rt rt-' + L.route + '">' + (ROUTE[L.route] && ROUTE[L.route].tag ? '<i class="rtb">' + ROUTE[L.route].tag + "</i>" : "") + esc(progressLabel(L)) + "</span></button></li>";
       }).join("") + "</ol></div>";
   }
 
@@ -401,7 +411,7 @@
         "<p>" + n + " 人回報要注意" + (pr ? "、" + pr + " 人說變好了" : "") + "，每月約 " + perMonth(n, t.months) + " 人</p>" +
         '<p class="tl-sum' + (cur ? " summary" : "") + '"><b>AI 摘要：</b>' + esc(cur ? summaryOf(L) : t.summary) + "</p></div></li>";
     }).join("") + "</ol>";
-    if (!hasUpdate(L)) out += '<p class="note">市府還沒有更新這個路口。市府完成改善並發布更新後，會開始新的階段，也才開放「這裡變好了」。</p>';
+    if (!hasUpdate(L)) out += '<p class="note">市府還沒有在這個路口登錄重大改善。登錄重大改善後，會開始新的階段，也才開放「這裡變好了」。</p>';
     return out;
   }
 
@@ -450,8 +460,8 @@
       '<div class="big"><b class="mono">' + r.concern + '</b><span>人回報這裡要注意' + (r.praise ? "・" + r.praise + " 人說變好了" : "") + "</span></div>" +
       '<div class="crowd" aria-hidden="true">' + crowdHTML(r.users, 40) + "</div>" +
       '<div class="ulegend">' + USERS.map(function (u) { return '<span><i style="background:' + K.userColor(u) + '"></i>' + u + " " + (r.users[u] || 0) + "</span>"; }).join("") + "</div>" +
-      '<div class="actions"><button class="btn primary" id="metoo">我也遇過</button><button class="btn" id="better"' + (hasUpdate(L) ? "" : ' disabled title="市府更新後才開放"') + '>這裡變好了</button></div>' +
-      (hasUpdate(L) ? "" : '<p class="note">市府更新後才能說「這裡變好了」。</p>') + "</div>" +
+      '<div class="actions"><button class="btn primary" id="metoo">我也遇過</button><button class="btn" id="better"' + (canPraise(L) ? "" : ' disabled title="市府更新後才開放"') + '>這裡變好了</button></div>' +
+      (canPraise(L) ? "" : '<p class="note">市府登錄完工後才能說「這裡變好了」。</p>') + "</div>" +
 
       '<div class="sec"><div class="sec-h"><h3>時間線</h3><span class="badge mock">示意</span></div>' + timelineHTML(L) + "</div>" +
       '<div class="sec" id="repairs"><div class="sec-h"><h3>維修紀錄（' + (L.repairs || []).length + '）</h3><span class="badge mock">示意</span></div>' + repairsHTML(L) + "</div>" +
@@ -619,7 +629,7 @@
       pulse(L.id);
       var n = R.ctx.mode === "praise" ? L.reports.praise : L.reports.concern;
       var crowd = '<div class="crowd" style="margin-top:6px">' + crowdHTML(L.reports.users, 24) + "</div>";
-      if (R.ctx.mode === "praise" && !hasUpdate(L)) {
+      if (R.ctx.mode === "praise" && !canPraise(L)) {
         R.bot("這個路口市府還沒有發布改善更新，等改善完成後才能說「這裡變好了」。要改成回報這裡要注意嗎？");
         R.opts(["改成回報要注意", "關閉"], function (t) { if (t === "關閉") R.close(); else { R.ctx.mode = "concern"; R.announce(true); } });
         return;
@@ -755,7 +765,7 @@
     });
   }
   window.DemoApp = { state: S, select: select, setLayer: setLayer, report: R, mapStyle: mapStyle,
-    util: { esc: esc, summaryOf: summaryOf, careBadge: careBadge, ownerOf: ownerOf, hasUpdate: hasUpdate, perMonth: perMonth,
+    util: { canPraise: canPraise, progressLabel: progressLabel, esc: esc, summaryOf: summaryOf, careBadge: careBadge, ownerOf: ownerOf, hasUpdate: hasUpdate, perMonth: perMonth,
             renderMarkers: renderMarkers, renderOverview: renderOverview, refresh: refresh, pulse: pulse, careText: careText } };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
