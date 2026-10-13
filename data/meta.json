@@ -24,12 +24,11 @@
  "report_some_threshold": 12,
  "report_high_pct": 70,
  "report_some_pct": 35,
- "district_quota": 2,
+ "district_quota": 3,
  "districts": {
   "中壢區": 23,
   "平鎮區": 6
  },
- "rank_quota": 6,
  "snap_m": 35,
  "cluster_m": 30,
  "n_intersections_found": 113,
@@ -99,11 +98,10 @@
  "updated": 4,
  "repairs": 15,
  "routes": {
-  "rank": 6,
+  "next": 5,
   "fast": 3,
   "none": 15,
-  "next": 3,
-  "district": 2
+  "district": 6
  },
  "sources": {
   "accidents": "桃園市政府開放資料「桃園市A1及A2類道路交通事故」https://data.gov.tw/dataset/46364（真實資料）",

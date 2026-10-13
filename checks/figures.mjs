@@ -42,7 +42,7 @@ const shots = [
       { sel: "#pin .stats", n: 5, at: "tl" },
       { sel: "#pin .case .case-ai", n: 6, at: "tl" },
       { sel: "#pin .case .case-causes", n: 7, at: "tl" },
-      { sel: "#pin .case .case-actions", n: 8, at: "tl" },
+      { sel: "#pin .case .dispatch", n: 8, at: "tl" },
     ],
   },
 ];

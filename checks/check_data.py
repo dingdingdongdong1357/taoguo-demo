@@ -49,7 +49,7 @@ for x in L:
     care = "many" if rp["concern"] >= M["report_high_threshold"] else "some" if rp["concern"] >= M["report_some_threshold"] else "few"
     check(x["care"] == care, f"{x['id']} 關心程度符合門檻")
     check(x["improved"] == (rp["praise"] > rp["concern"]), f"{x['id']} 「變好了」判斷正確")
-    check(x["route"] in ("rank", "district", "fast", "next", "none"), f"{x['id']} 送審路徑值合法")
+    check(x["route"] in ("district", "fast", "next", "none"), f"{x['id']} 送審路徑值合法")
     check((x["route"] == "none") == (x["route_reason"] == ""), f"{x['id']} 有送審路徑就有說明")
     check(bool(x.get("district")), f"{x['id']} 有行政區")
     check(len(x["owners"]) >= 1 or rp["concern"] == 0, f"{x['id']} 至少有一個權責單位")
@@ -84,13 +84,13 @@ for x in L:
     q[x["quadrant"]] = q.get(x["quadrant"], 0) + 1
 check(all(q.get(k, 0) >= 3 for k in ("priority", "prevent", "blind", "calm")), f"四種對照類型各至少 3 個：{q}")
 
-# routes: exactly rank_quota by overall ranking; every district's top N reaches the city
+# routes: no citywide ranking; every district sends exactly its own top N
 ranked = sorted([x for x in L if not x["improved"]], key=lambda x: (-x["reports"]["concern"], x["id"]))
-check(sum(x["route"] == "rank" for x in L) == M["rank_quota"], f"全區排行名額＝{M['rank_quota']}")
-check(all(x["route"] == "rank" for x in ranked[:M["rank_quota"]]), "全區排行就是回報最多的前幾名")
+check("rank_quota" not in M and not any(x["route"] == "rank" for x in L), "沒有全區排行")
 for dist in M["districts"]:
-    top = [x for x in ranked if x["district"] == dist][:M["district_quota"]]
-    check(all(x["route"] in ("rank", "district", "fast") for x in top), f"{dist}前 {M['district_quota']} 名都有送市府")
+    top = [x for x in ranked if x["district"] == dist]
+    check(all(x["route"] == "district" for x in top[:M["district_quota"]]), f"{dist}前 {M['district_quota']} 名都送市府")
+    check(sum(x["route"] == "district" for x in L if x["district"] == dist) == min(M["district_quota"], len(top)), f"{dist}名額＝{M['district_quota']}")
 check(sum(M["districts"].values()) == len(L), "行政區計數一致")
 
 kinds = {}

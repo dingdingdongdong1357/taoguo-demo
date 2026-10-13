@@ -34,8 +34,7 @@ SNAP_M = 35         # an accident within this distance of an intersection belong
 YEARS = list(range(2019, 2026))
 REPORT_HIGH_PCT, REPORT_SOME_PCT = 70, 35  # 回報多＝本區前 30%；有人關心＝前 65%
 N_FAST_REAL = 2
-N_RANK = 6            # 全區排行：每月前 6 名送市府（依市府人力決定）
-N_DISTRICT = 2        # 各區排行：每區每月前 2 名一定送審
+N_DISTRICT = 3        # 各區排行：每區每月前 3 名送市府，每區名額一樣（依市府人力決定）
 MAIN_DISTRICT = "中壢區"  # 快速通道：回報少、但這裡發生過死亡事故（真實資料）
 RECENT = (2023, 2025)
 
@@ -500,22 +499,14 @@ for L in locations:
     q = (L["real"]["level"], rp["level"])
     L["quadrant"] = {("high", "high"): "priority", ("low", "high"): "prevent", ("high", "low"): "blind", ("low", "low"): "calm"}[q]
     L["route"], L["route_reason"] = "none", ""
-board = sorted([L for L in locations if not L["improved"]], key=lambda L: (-L["reports"]["concern"], L["id"]))
-for i, L in enumerate(board, 1):
-    L["overall_rank"] = i
-    if i <= N_RANK:
-        L["route"] = "rank"
-        L["route_reason"] = f"全區本月關心排行第 {i} 名，送市府處理。"
-
-# Three ways onto the city's list: overall ranking, each district's own ranking, fast track.
+# Two ways onto the city's list: each district's own ranking (same quota for every district), and the fast track.
 for dist in sorted({L["district"] for L in locations}):
     board = sorted([L for L in locations if L["district"] == dist and not L["improved"]], key=lambda L: (-L["reports"]["concern"], L["id"]))
     for i, L in enumerate(board, 1):
         L["district_rank"] = i
     for i, L in enumerate(board[:N_DISTRICT], 1):
-        if L["route"] == "none":
-            L["route"] = "district"
-            L["route_reason"] = f"全區排名排不上，但它是{dist}本月關心排行第 {i} 名，依各區名額送審。"
+        L["route"] = "district"
+        L["route_reason"] = f"{dist}本月關心排行第 {i} 名，送市府處理（每區前 {N_DISTRICT} 名）。"
 # Fast track, real: few reports but a fatal crash happened here (open data).
 low_with_death = sorted([L for L in locations if L["route"] == "none" and L["care"] != "many" and L["real"]["a1_total"] > 0 and not L["improved"]],
                         key=lambda L: (-L["real"]["acc_recent"], L["id"]))
@@ -526,7 +517,7 @@ for L in low_with_death[:N_FAST_REAL]:
 for L in locations:  # many people care, but this month's slots are taken
     if L["route"] == "none" and L["care"] == "many":
         L["route"] = "next"
-        L["route_reason"] = f"全區排行第 {L['overall_rank']} 名，本月名額已滿，下個月優先處理。"
+        L["route_reason"] = f"{L['district']}本月關心排行第 {L['district_rank']} 名，本區名額已滿，下個月優先處理。"
 for L in sorted(locations, key=lambda L: L["id"]):
     if L["route"] == "none" and L["care"] == "few" and not L["improved"] and L["reports"]["severity"].get("曾經擦撞", 0) >= 1:
         L["route"] = "fast"
@@ -536,9 +527,9 @@ for L in locations:
     kind, stage = L.pop("_kind"), L.pop("_stage")
     if kind == "praise":
         L["stage"] = "已改善"
-    elif any(t["type"] == "update" for t in L["timeline"]) and L["route"] in ("rank", "next"):
+    elif any(t["type"] == "update" for t in L["timeline"]) and L["route"] in ("district", "next"):
         L["stage"] = stage  # fixed once, still many reports: re-survey
-    elif L["route"] == "rank":
+    elif L["route"] == "district" and L["district_rank"] == 1:
         L["stage"] = stage
     elif L["route"] in ("fast", "district"):
         L["stage"] = "已收到"
@@ -571,7 +562,7 @@ meta = {
     "area": "中壢火車站周邊", "bbox": [WEST, SOUTH, EAST, NORTH], "years": YEARS, "recent": list(RECENT),
     "acc_high_threshold": ACC_HIGH, "report_high_threshold": REPORT_HIGH, "report_some_threshold": REPORT_SOME,
     "report_high_pct": REPORT_HIGH_PCT, "report_some_pct": REPORT_SOME_PCT, "district_quota": N_DISTRICT,
-    "districts": dict(Counter(L["district"] for L in locations)), "rank_quota": N_RANK, "snap_m": SNAP_M, "cluster_m": CLUSTER_M,
+    "districts": dict(Counter(L["district"] for L in locations)), "snap_m": SNAP_M, "cluster_m": CLUSTER_M,
     "n_intersections_found": len(inters), "seed": SEED, **area,
     "quadrants": dict(Counter(L["quadrant"] for L in locations)),
     "care": dict(Counter(L["care"] for L in locations)), "data_start": ym(DATA_START), "data_now": ym(DATA_NOW),

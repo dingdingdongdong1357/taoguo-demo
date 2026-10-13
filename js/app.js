@@ -17,8 +17,7 @@
   };
   var CARE_TEXT = { many: "很多人關心這裡", some: "有人關心這裡", few: "回報還少：資訊不足，不代表安全" };
   var ROUTE = {
-    rank: { name: "全區排行", tag: "", desc: function () { return "每月全區最多人關心的前 " + S.meta.rank_quota + " 名"; } },
-    district: { name: "各區排行", tag: "區", desc: function () { return "每個行政區自己的前 " + S.meta.district_quota + " 名，人少的區也有名額"; } },
+    district: { name: "各區排行", tag: "", desc: function () { return "每個行政區自己的前 " + S.meta.district_quota + " 名，每區名額一樣"; } },
     fast: { name: "快速通道", tag: "快", desc: function () { return "回報少但情況嚴重：曾經擦撞並附照片、發生過死亡事故，或里長、學校代表回報"; } }
   };
   function careText(L) { return L.improved ? "多數人說這裡變好了" : CARE_TEXT[L.care]; }
@@ -258,7 +257,7 @@
     } else {
       var sw = function (c, t, txt) { return '<span class="li"><span class="cb care-' + c + '" style="width:18px;height:18px;font-size:10px">' + t + "</span>" + txt + "</span>"; };
       h = '<div class="row">' + sw("many", "", "很多人關心") + sw("some", "", "有人關心") + sw("few", "", "回報還少") + sw("few improved", "✓", "變好了") + "</div>" +
-        '<div class="row"><span class="li"><i class="rtb static">快</i>快速通道</span><span class="li"><i class="rtb static">區</i>各區名額</span><span class="li"><span class="badge mock">示意資料</span></span>數字＝回報人數</div>';
+        '<div class="row"><span class="li"><i class="rtb static">快</i>快速通道</span><span class="li"><span class="badge mock">示意資料</span></span>數字＝回報人數</div>';
     }
     $("legend").innerHTML = h;
   }
@@ -332,14 +331,14 @@
   }
 
   /* Each district keeps its own ranking, so quieter districts are not drowned out. */
-  var ROUTE_LABEL = { rank: "全區排行", district: "各區名額", fast: "快速通道", next: "下個月優先", none: "收集中" };
+  var ROUTE_LABEL = { district: "本月送市府", fast: "快速通道", next: "下個月優先", none: "收集中" };
   function boardHTML() {
     var dists = Object.keys(S.meta.districts).sort(function (a, b) { return S.meta.districts[b] - S.meta.districts[a]; });
     var d = S.board && dists.indexOf(S.board) >= 0 ? S.board : dists[0];
     var rows = S.locs.filter(function (L) { return L.district === d && !L.improved; })
       .sort(function (a, b) { return b.reports.concern - a.reports.concern; }).slice(0, 5);
     return '<div class="sec"><div class="sec-h"><h3>各區關心排行（本月）</h3><span class="badge mock">示意</span></div>' +
-      '<p class="note">每個行政區有自己的排行榜。全區前 ' + S.meta.rank_quota + " 名、各區前 " + S.meta.district_quota + " 名，加上快速通道，會送市府處理（深藍色＝本月送市府）。各區前 " + S.meta.district_quota + " 名如果已經在全區排行裡，就不另外佔名額，所以人多的區可能只看到「全區排行」。</p>" +
+      '<p class="note">每個行政區只跟自己比：每區每月前 ' + S.meta.district_quota + " 名送市府（深藍色），每區名額一樣；回報少但情況嚴重的路口走快速通道。名額滿了的排到下個月優先。</p>" +
       '<div class="tabs btabs" role="tablist">' + dists.map(function (x) {
         return '<button role="tab" data-d="' + x + '" aria-selected="' + (x === d) + '">' + x + "</button>";
       }).join("") + "</div>" +
@@ -482,16 +481,20 @@
       (L.decision ? '<div class="sec"><div class="sec-h"><h3>市府回覆</h3><span class="badge mock">示意</span></div><p class="accnote"><b>' + esc(L.decision.title) + "（" + esc(L.decision.date) + "）</b>：" + esc(L.decision.text) + "</p></div>" : "") +
       '<div class="sec"><div class="sec-h"><h3>處理進度</h3><span class="badge mock">示意</span></div><ol class="steps">' +
       STAGES.map(function (s, i) { return '<li class="' + (i < stageIdx ? "is-done" : i === stageIdx ? "is-now" : "") + '"><i></i>' + s + "</li>"; }).join("") + "</ol>" +
+      (L.schedule && L.stage === "已排程" ? '<p class="accnote">市府預計 <b>' + L.schedule.replace("-", " 年 ").replace(/ 0(\d)$/, " $1") + " 月</b>完工。</p>" : "") +
       "</div>" +
       '<div class="sec"><div class="sec-h"><h3>怎麼送到市府</h3><span class="badge mock">示意</span></div><ul class="routes">' +
-      ["rank", "district", "fast"].map(function (k) {
+      ["district", "fast"].map(function (k) {
         return '<li class="' + (L.route === k ? "on" : "") + '"><b>' + (ROUTE[k].tag ? '<i class="rtb static">' + ROUTE[k].tag + "</i>" : "") + ROUTE[k].name + "</b><span>" + ROUTE[k].desc() + "</span></li>";
       }).join("") + "</ul>" +
       '<p class="accnote">' + esc(L.route_reason || "回報還在累積，這個月還沒進入名單。") + "</p>" +
       (L.district_rank ? '<p class="note">' + esc(L.district) + "本月關心排行第 " + L.district_rank + " 名</p>" : "") + "</div>" +
 
       '<div class="sec"><div class="sec-h"><h3>誰管這裡</h3><span class="badge mock">示意</span></div><div class="owners">' +
-      L.owners.map(function (o) { return '<span class="owner">' + esc(o) + "</span>"; }).join("") + "</div>" +
+      L.owners.map(function (o, i) {
+        var lead = (L.lead && L.owners.indexOf(L.lead) >= 0) ? L.lead : L.owners.filter(function (x) { return x.indexOf("會勘") < 0; })[0];
+        return '<span class="owner' + (o === lead ? " lead" : "") + '">' + (o === lead ? "主責・" : "") + esc(o) + "</span>";
+      }).join("") + "</div>" +
       (L.owners.length >= 3 ? '<p class="flag">牽涉 3 個以上單位，建議會勘</p>' : "") + "</div>" +
 
       '<div class="sec"><div class="sec-h"><h3>市民怎麼說</h3><span class="badge mock">示意</span></div>' +
