@@ -19,7 +19,7 @@ const shots = [
     prep: `DemoApp.state.map.jumpTo({center:[121.2235,24.9555], zoom:14.35});`,
     items: [
       { sel: '.mk[data-id="L17"]', n: 1, at: "tr" },
-      { sel: ".mk .rtb", n: 2, at: "tl" },
+      { sel: "#legend .li:has(.rtb)", n: 2, at: "bl" },
       { sel: '.mk[data-id="L20"]', n: 3, at: "tr" },
       { sel: "#layers", n: 4, at: "tr" },
       { sel: "#pin .big", n: 5, at: "tl" },
@@ -39,7 +39,7 @@ const shots = [
     name: "fig5_gov", hash: "#gov", w: 1600, h: 1000,
     items: [
       { sel: "#viewseg", n: 4, at: "tr" },
-      { sel: "#pin .stats", n: 5, at: "tl" },
+      { sel: "#pin .stats", n: 5, at: "tr" },
       { sel: "#pin .case .case-ai", n: 6, at: "tl" },
       { sel: "#pin .case .case-causes", n: 7, at: "tl" },
       { sel: "#pin .case .dispatch", n: 8, at: "tl" },

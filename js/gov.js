@@ -47,7 +47,7 @@
       '<header><button class="case-name" data-go="' + L.id + '">' + U.esc(L.name) + '</button><span class="case-meta">' + U.esc(L.district) + "・" + U.esc(L.stage) + "</span></header>" +
       '<p class="case-reason">' + U.esc(L.route_reason) + "</p>" +
       '<p class="case-stats"><span><b class="mono">' + L.reports.concern + '</b> 人回報<span class="badge mock">示意</span></span><span>近三年事故 <b class="mono">' + L.real.acc_recent + "</b> 件" +
-      (L.real.a1_total ? "・死亡 <b class=\"mono\">" + L.real.a1_total + "</b> 件" : "") + '<span class="badge real">真實</span></span></p>' +
+      (L.real.a1_recent ? "・死亡 <b class=\"mono\">" + L.real.a1_recent + "</b> 件" : "") + '<span class="badge real">真實</span></span></p>' +
       '<div class="case-ai"><p class="b-label">AI 摘要</p><p>' + U.esc(U.summaryOf(L)) + "</p></div>" +
       '<ul class="case-causes">' + topCauses(L, 2) + "</ul>" +
       ownersHTML(L, site) +

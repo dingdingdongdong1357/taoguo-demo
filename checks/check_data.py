@@ -76,7 +76,8 @@ for x in L:
     if x["route"] == "fast":
         check(x["care"] != "many", f"{x['id']} 快速通道只給回報不多的路口")
         if "死亡事故" in x["route_reason"]:
-            check(x["real"]["a1_total"] > 0, f"{x['id']} 以死亡事故走快速通道時，真實資料確實有死亡事故")
+            check(x["real"]["a1_recent"] > 0, f"{x['id']} 以死亡事故走快速通道時，近三年真實資料確實有死亡事故")
+        check(x["real"]["a1_recent"] <= x["real"]["a1_total"], f"{x['id']} 近三年死亡事故不超過全部")
     check(len(x["comments"]) >= 2, f"{x['id']} 至少兩則留言")
 
 q = {}

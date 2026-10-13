@@ -173,6 +173,7 @@ per_year = acc[acc["loc"] >= 0].groupby(["loc", "year"]).size().unstack(fill_val
 a1 = acc[(acc["loc"] >= 0) & acc["Accident_type"].eq("A1")].groupby("loc").size()
 district = acc[acc["loc"] >= 0].groupby("loc")["Area"].agg(lambda s: s.value_counts().index[0])
 recent_mask = acc["year"].between(*RECENT)
+a1_recent = acc[(acc["loc"] >= 0) & acc["Accident_type"].eq("A1") & recent_mask].groupby("loc").size()
 area = {
     "accidents_2019_2025": int(len(acc)),
     "accidents_recent": int(recent_mask.sum()),
@@ -185,6 +186,7 @@ for k, d in enumerate(inters):
     d["acc_by_year"] = [int(v) for v in ys]
     d["acc_recent"] = int(sum(v for y, v in zip(YEARS, ys) if RECENT[0] <= y <= RECENT[1]))
     d["a1_total"] = int(a1.get(k, 0))
+    d["a1_recent"] = int(a1_recent.get(k, 0))  # fast track looks at the last three years only, like "many accidents"
     if k in district.index:
         d["district"] = str(district[k])
     else:  # no accident nearby: borrow the district of the closest accident
@@ -477,7 +479,7 @@ for n, k in enumerate(order):
 
     locations.append({
         "id": lid, "name": "／".join(d["names"]), "district": d["district"], "lon": round(d["lon"], 6), "lat": round(d["lat"], 6),
-        "real": {"acc_by_year": d["acc_by_year"], "years": YEARS, "acc_recent": d["acc_recent"], "a1_total": d["a1_total"],
+        "real": {"acc_by_year": d["acc_by_year"], "years": YEARS, "acc_recent": d["acc_recent"], "a1_total": d["a1_total"], "a1_recent": d["a1_recent"],
                  "level": "high" if d["acc_recent"] >= ACC_HIGH else "low"},
         "mock": True,
         "reports": {"concern": negatives, "praise": positives, "categories": cat_counts, "causes": causes, "users": users,
@@ -508,11 +510,11 @@ for dist in sorted({L["district"] for L in locations}):
         L["route"] = "district"
         L["route_reason"] = f"{dist}本月關心排行第 {i} 名，送市府處理（每區前 {N_DISTRICT} 名）。"
 # Fast track, real: few reports but a fatal crash happened here (open data).
-low_with_death = sorted([L for L in locations if L["route"] == "none" and L["care"] != "many" and L["real"]["a1_total"] > 0 and not L["improved"]],
+low_with_death = sorted([L for L in locations if L["route"] == "none" and L["care"] != "many" and L["real"]["a1_recent"] > 0 and not L["improved"]],
                         key=lambda L: (-L["real"]["acc_recent"], L["id"]))
 for L in low_with_death[:N_FAST_REAL]:
     L["route"] = "fast"
-    L["route_reason"] = f"回報只有 {L['reports']['concern']} 人，但這裡 2019–2025 年發生過 {L['real']['a1_total']} 件死亡事故（真實資料），直接送審。"
+    L["route_reason"] = f"回報只有 {L['reports']['concern']} 人，但這裡近三年（{RECENT[0]}–{RECENT[1]}）發生過 {L['real']['a1_recent']} 件死亡事故（真實資料），直接送審。"
 # Fast track, mock: one person reported a collision with a photo.
 for L in locations:  # many people care, but this month's slots are taken
     if L["route"] == "none" and L["care"] == "many":

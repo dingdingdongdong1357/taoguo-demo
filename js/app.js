@@ -18,7 +18,7 @@
   var CARE_TEXT = { many: "很多人關心這裡", some: "有人關心這裡", few: "回報還少：資訊不足，不代表安全" };
   var ROUTE = {
     district: { name: "各區排行", tag: "", desc: function () { return "每個行政區自己的前 " + S.meta.district_quota + " 名，每區名額一樣"; } },
-    fast: { name: "快速通道", tag: "快", desc: function () { return "回報少但情況嚴重：曾經擦撞並附照片、發生過死亡事故，或里長、學校代表回報"; } }
+    fast: { name: "快速通道", tag: "快", desc: function () { return "回報少但情況嚴重：曾經擦撞並附照片、近三年發生過死亡事故，或里長、學校代表回報"; } }
   };
   function careText(L) { return L.improved ? "多數人說這裡變好了" : CARE_TEXT[L.care]; }
   function careBadge(L, size) {
@@ -472,7 +472,7 @@
       '<div class="sec"><div class="sec-h"><h3>真實事故紀錄</h3><span class="badge real">真實資料</span></div>' +
       K.accBars(L.real.years, L.real.acc_by_year, S.meta.recent) +
       '<p class="accnote">' + L.real.years[0] + "–" + L.real.years[L.real.years.length - 1] + " 年共 <b>" + accSum + "</b> 件，近三年 <b>" + L.real.acc_recent + "</b> 件" +
-      (L.real.a1_total ? "，其中死亡事故 <b>" + L.real.a1_total + "</b> 件" : "") + "。" +
+      (L.real.a1_total ? "，其中死亡事故 <b>" + L.real.a1_total + "</b> 件（近三年 <b>" + L.real.a1_recent + "</b> 件）" : "") + "。" +
       (L.real.level === "high" ? "近三年事故數在本區前 20%。" : "近三年事故數不在本區前 20%。") + "</p>" +
       '<p class="note">路口 35 公尺內的 A1、A2 事故。來源：桃園市政府開放資料。</p></div>' +
 
