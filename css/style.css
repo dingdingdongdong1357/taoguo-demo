@@ -120,8 +120,9 @@ body[data-map-ready] .maploading{display:none}
 .brow .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .brow .v{color:var(--muted);font-size:12px}
 .rt{font-size:11px;padding:2px 6px;border-radius:2px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
-.rt-rank{background:var(--accent);border-color:var(--accent);color:#fff}
-.rt-district,.rt-fast{background:var(--marking);border-color:var(--ink);color:#1F2427}
+/* one color = sent to the city this month; the small 區/快 tag (same as on the map) says which route */
+.rt-rank,.rt-district,.rt-fast{background:var(--accent);border-color:var(--accent);color:#fff;display:inline-flex;align-items:center;gap:4px}
+.rt .rtb{width:15px;height:15px;font-size:10px;border-width:1px}
 .rt-next{border-color:var(--accent);color:var(--accent)}
 /* city view (市府端) */
 .viewseg{margin-left:6px;box-shadow:none}

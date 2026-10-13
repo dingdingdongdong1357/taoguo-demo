@@ -339,12 +339,12 @@
     var rows = S.locs.filter(function (L) { return L.district === d && !L.improved; })
       .sort(function (a, b) { return b.reports.concern - a.reports.concern; }).slice(0, 5);
     return '<div class="sec"><div class="sec-h"><h3>各區關心排行（本月）</h3><span class="badge mock">示意</span></div>' +
-      '<p class="note">每個行政區有自己的排行榜。全區前 ' + S.meta.rank_quota + " 名、各區前 " + S.meta.district_quota + " 名，加上快速通道，會送市府處理。</p>" +
+      '<p class="note">每個行政區有自己的排行榜。全區前 ' + S.meta.rank_quota + " 名、各區前 " + S.meta.district_quota + " 名，加上快速通道，會送市府處理（深藍色＝本月送市府）。各區前 " + S.meta.district_quota + " 名如果已經在全區排行裡，就不另外佔名額，所以人多的區可能只看到「全區排行」。</p>" +
       '<div class="tabs btabs" role="tablist">' + dists.map(function (x) {
         return '<button role="tab" data-d="' + x + '" aria-selected="' + (x === d) + '">' + x + "</button>";
       }).join("") + "</div>" +
       '<ol class="board">' + rows.map(function (L, i) {
-        return '<li><button class="brow" data-id="' + L.id + '"><b class="mono">' + (i + 1) + '</b><span class="nm">' + esc(L.name) + '</span><span class="mono v">' + L.reports.concern + ' 人</span><span class="rt rt-' + L.route + '">' + ROUTE_LABEL[L.route] + "</span></button></li>";
+        return '<li><button class="brow" data-id="' + L.id + '"><b class="mono">' + (i + 1) + '</b><span class="nm">' + esc(L.name) + '</span><span class="mono v">' + L.reports.concern + ' 人</span><span class="rt rt-' + L.route + '">' + (ROUTE[L.route] && ROUTE[L.route].tag ? '<i class="rtb">' + ROUTE[L.route].tag + "</i>" : "") + ROUTE_LABEL[L.route] + "</span></button></li>";
       }).join("") + "</ol></div>";
   }
 

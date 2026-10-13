@@ -51,7 +51,7 @@ python data-prep/prepare.py     # 產生 data/ 底下的三個檔案
 | CP3 瀏覽器實測（建議用 `python dev_server.py` 開，不會快取） | 在網頁的開發者主控台執行 `await eval(await (await fetch('checks/browser_test.js')).text())` |
 | CP5 可重現 | `python checks/check_reproducible.py` |
 
-每次檢查的結果與修正過程記錄在 [CHECKPOINTS.md](CHECKPOINTS.md)。
+每次檢查的結果與修正過程記錄在 [CHECKPOINTS.md](../../AI協作/差一點地圖/CHECKPOINTS.md)（在 demo 外的 AI協作 資料夾）。
 
 ## 方法說明
 

@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "screenshots" / "annotated"
-OUT = ROOT.parent / "圖" / "危險道路"
+OUT = ROOT.parent / "圖"  # 01_差一點地圖/圖
 OUT.mkdir(parents=True, exist_ok=True)
 BG, INK, MUTED = (236, 238, 234), (31, 36, 39), (89, 98, 106)
 FONT = r"C:\Windows\Fonts\msjhbd.ttc"
