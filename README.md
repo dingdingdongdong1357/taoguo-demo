@@ -28,7 +28,7 @@
 需要 Python 3。在 `demo` 資料夾裡：
 
 ```bash
-python -m http.server 8765
+python dev_server.py
 ```
 
 然後用瀏覽器開 <http://localhost:8765>。直接雙擊 `index.html` 打不開，因為瀏覽器不允許用檔案路徑讀取資料檔。
@@ -47,7 +47,7 @@ python data-prep/prepare.py     # 產生 data/ 底下的三個檔案
 |---|---|
 | CP1 資料 | `python checks/check_data.py` |
 | CP2 程式 | `python checks/check_site.py` |
-| CP3 瀏覽器實測 | 在網頁的開發者主控台執行 `await eval(await (await fetch('checks/browser_test.js')).text())` |
+| CP3 瀏覽器實測（建議用 `python dev_server.py` 開，不會快取） | 在網頁的開發者主控台執行 `await eval(await (await fetch('checks/browser_test.js')).text())` |
 | CP5 可重現 | `python checks/check_reproducible.py` |
 
 每次檢查的結果與修正過程記錄在 [CHECKPOINTS.md](CHECKPOINTS.md)。

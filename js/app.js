@@ -18,7 +18,7 @@
   var WX_TEXT = { storm: "雷雨：很多人覺得這裡危險", cloudy: "多雲：有些人覺得要注意", sunny: "晴：目前回報很少" };
   function wxText(L) { return L.weather === "sunny" && L.reports.praise > L.reports.concern ? "晴：多數人說這裡變好了" : WX_TEXT[L.weather]; }
 
-  var S = { roads: null, locs: [], meta: null, byId: {}, layer: "reports", filter: null, sel: null, me: null, map: null, markers: {}, labels: [] };
+  var S = { roads: null, locs: [], meta: null, byId: {}, layer: "reports", sel: null, me: null, map: null, markers: {}, labels: [] };
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function sum(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
@@ -161,7 +161,17 @@
       var wrap = document.createElement("div");
       var el = document.createElement("button");
       el.type = "button";
-      el.addEventListener("click", function (e) { e.stopPropagation(); onMarker(L.id); });
+      // Handle the tap ourselves: the map treats a press as the start of a drag, which can
+      // swallow the click on touch screens and inside embedded frames.
+      var down = null, lastTap = 0;
+      el.addEventListener("pointerdown", function (e) { e.stopPropagation(); down = { x: e.clientX, y: e.clientY }; });
+      el.addEventListener("pointerup", function (e) {
+        e.stopPropagation();
+        if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 8) { lastTap = Date.now(); onMarker(L.id); }
+        down = null;
+      });
+      ["mousedown", "touchstart", "dblclick"].forEach(function (t) { el.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true }); });
+      el.addEventListener("click", function (e) { e.stopPropagation(); if (Date.now() - lastTap > 500) onMarker(L.id); }); // keyboard Enter/Space
       wrap.appendChild(el);
       var mk = new maplibregl.Marker({ element: wrap }).setLngLat([L.lon, L.lat]).addTo(S.map);
       S.markers[L.id] = { el: el, wrap: wrap, mk: mk };
@@ -188,11 +198,11 @@
         el.style.borderColor = "var(--surface)";
         label = L.name + "：" + q.name;
       } else {
-        var v = S.filter ? L.reports.users[S.filter] || 0 : L.reports.concern;
+        var v = L.reports.concern;
         size = Math.round((30 + Math.min(Math.sqrt(v) * 3.2, 30)) * zf);
         cls = "mk";
         html = K.weather(L.weather, Math.round(size * 0.66)) + '<span class="n">' + v + "</span>";
-        label = L.name + "，" + (S.filter ? S.filter + "回報 " : "回報 ") + v + " 人（示意資料），" + wxText(L);
+        label = L.name + "，回報 " + v + " 人（示意資料），" + wxText(L);
       }
       if (S.layer !== "compare") { el.style.background = ""; el.style.borderColor = ""; }
       el.className = cls + sel;
@@ -232,16 +242,9 @@
   function setLayer(layer) {
     S.layer = layer;
     document.querySelectorAll("#layers button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.layer === layer); });
-    $("filters").hidden = layer !== "reports";
     renderMarkers();
     if (!S.sel) renderOverview();
   }
-  function setFilter(u) {
-    S.filter = S.filter === u ? null : u;
-    document.querySelectorAll("#filters .chip").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.u === S.filter); });
-    renderMarkers();
-  }
-
   /* ---------------- panel: overview ---------------- */
   function renderOverview() {
     S.sel = null;
@@ -260,6 +263,7 @@
     var html = '<p class="eyebrow">DEMO ・ 中壢火車站周邊</p>' +
       '<h1 class="ptitle">哪裡讓人「差一點」出事？</h1>' +
       '<p class="lede">市民回報差點出事的路口，其他人可以按「我也遇過」。地圖把市民的經驗和真實事故放在一起看，找出還沒出事、但大家都覺得危險的地方。</p>' +
+      '<p class="note">點地圖上的圓圈，看每個路口的小檔案；右上角「＋ 我要回報」可以體驗回報流程。</p>' +
       '<div class="stats">' +
       '<div class="stat"><b>' + fmt(S.meta.accidents_recent) + '</b><span>近三年事故<br><span class="badge real">真實</span></span></div>' +
       '<div class="stat"><b>' + fmt(S.meta.a1_recent) + '</b><span>其中死亡事故<br><span class="badge real">真實</span></span></div>' +
@@ -577,10 +581,6 @@
   function boot() {
     $("brand").insertAdjacentHTML("afterbegin", K.brand());
     document.querySelectorAll("#layers button").forEach(function (b) { b.addEventListener("click", function () { setLayer(b.dataset.layer); }); });
-    $("filters").innerHTML = USERS.map(function (u) {
-      return '<button class="chip" type="button" data-u="' + u + '" aria-pressed="false"><span class="dot" style="background:' + K.userColor(u) + '"></span>' + u + "</button>";
-    }).join("");
-    $("filters").querySelectorAll(".chip").forEach(function (b) { b.addEventListener("click", function () { setFilter(b.dataset.u); }); });
     $("report").addEventListener("click", function () { R.open({}); });
     $("phone-x").addEventListener("click", R.close);
     $("handle").addEventListener("click", function () { $("panel").classList.toggle("expanded"); });

@@ -34,13 +34,15 @@
     check(document.getElementById("legend").textContent.trim().length > 4, "圖例有內容：" + layer);
   });
 
-  // filter
-  var chip = document.querySelector('#filters .chip[data-u="機車"]');
-  chip.click();
-  var L0 = S.locs[0];
-  check(S.markers[L0.id].el.querySelector(".n").textContent === String(L0.reports.users["機車"]), "運具篩選後數字＝該運具人數");
-  chip.click();
-  check(S.markers[L0.id].el.querySelector(".n").textContent === String(L0.reports.concern), "取消篩選後數字＝全部回報");
+  // a real tap on a marker opens its profile (pointer events, as on a phone)
+  var T = S.locs[1], tel = S.markers[T.id].el, tr = tel.getBoundingClientRect();
+  var opts = { bubbles: true, clientX: tr.left + tr.width / 2, clientY: tr.top + tr.height / 2, pointerId: 1, pointerType: "touch", isPrimary: true };
+  tel.dispatchEvent(new PointerEvent("pointerdown", opts));
+  tel.dispatchEvent(new PointerEvent("pointerup", opts));
+  check(S.sel === T.id && document.querySelector(".ptitle").textContent === T.name, "點路口標記會打開小檔案");
+  A.select(T.id, false); document.getElementById("back").click();
+  check(S.sel === null, "「回到全部路口」可以返回");
+  check(!document.getElementById("filters"), "地圖上沒有運具篩選（方案 B）");
 
   // profile
   var L = S.locs.filter(function (x) { return x.quadrant === "prevent"; })[0];
