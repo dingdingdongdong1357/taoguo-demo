@@ -32,7 +32,11 @@ MY = 110540
 CLUSTER_M = 30      # intersection nodes closer than this are one intersection
 SNAP_M = 35         # an accident within this distance of an intersection belongs to it
 YEARS = list(range(2019, 2026))
-WX_STORM, WX_CLOUDY = 40, 12  # 路況天氣：雷雨 / 多雲 門檻
+REPORT_HIGH_PCT, REPORT_SOME_PCT = 70, 35  # 回報多＝本區前 30%；有人關心＝前 65%
+N_FAST_REAL = 2
+N_RANK = 6            # 全區排行：每月前 6 名送市府（依市府人力決定）
+N_DISTRICT = 2        # 各區排行：每區每月前 2 名一定送審
+MAIN_DISTRICT = "中壢區"  # 快速通道：回報少、但這裡發生過死亡事故（真實資料）
 RECENT = (2023, 2025)
 
 CLASS_RANK = {"trunk": 6, "primary": 5, "secondary": 4, "tertiary": 3, "unclassified": 2,
@@ -168,6 +172,7 @@ acc["loc"] = np.where(best <= SNAP_M, nearest, -1)
 
 per_year = acc[acc["loc"] >= 0].groupby(["loc", "year"]).size().unstack(fill_value=0).reindex(columns=YEARS, fill_value=0)
 a1 = acc[(acc["loc"] >= 0) & acc["Accident_type"].eq("A1")].groupby("loc").size()
+district = acc[acc["loc"] >= 0].groupby("loc")["Area"].agg(lambda s: s.value_counts().index[0])
 recent_mask = acc["year"].between(*RECENT)
 area = {
     "accidents_2019_2025": int(len(acc)),
@@ -181,6 +186,11 @@ for k, d in enumerate(inters):
     d["acc_by_year"] = [int(v) for v in ys]
     d["acc_recent"] = int(sum(v for y, v in zip(YEARS, ys) if RECENT[0] <= y <= RECENT[1]))
     d["a1_total"] = int(a1.get(k, 0))
+    if k in district.index:
+        d["district"] = str(district[k])
+    else:  # no accident nearby: borrow the district of the closest accident
+        j = int(np.argmin(np.hypot(ax - ix[k], ay - iy[k])))
+        d["district"] = str(acc["Area"].iloc[j])
 
 with_acc = np.array([d["acc_recent"] for d in inters if d["acc_recent"] > 0])
 ACC_HIGH = int(np.percentile(with_acc, 80))
@@ -210,10 +220,10 @@ low_set = [k for k in chosen if k not in high_set]
 arche = {}
 hs = list(high_set); rng.shuffle(hs)
 for i, k in enumerate(hs):
-    arche[k] = "hot" if i < 11 else "blind"
+    arche[k] = "hot" if i < 6 else "blind"
 ls = list(low_set); rng.shuffle(ls)
 for i, k in enumerate(ls):
-    arche[k] = "early" if i < 7 else ("praise" if i < 11 else "calm")
+    arche[k] = "early" if i < 4 else ("praise" if i < 7 else "calm")
 
 # ---------------------------------------------------------------- mock reports
 CATS = ["視線被擋", "號誌時間太短", "待轉區讓人困惑", "標線看不清楚", "沒有人行空間", "車速太快", "違停擋住視線", "大車進出", "路面不平"]
@@ -269,12 +279,17 @@ for n, k in enumerate(sorted(chosen, key=lambda k: (-inters[k]["acc_recent"], k)
     kind = arche[k]
     lid = f"L{n + 1:02d}"
     if kind in ("hot", "early"):
-        negatives = r.randint(24, 68)
+        negatives = r.randint(42, 70)
+    elif kind == "blind":
+        negatives = r.randint(4, 30)
     elif kind == "praise":
         negatives = r.randint(3, 9)
     else:
         negatives = r.randint(1, 12)
     positives = r.randint(14, 30) if kind == "praise" else r.randint(0, 4)
+    if d["district"] != MAIN_DISTRICT and kind != "praise":
+        # mock: fewer people pass the edge of the area, so fewer reports — this is what the district quota is for
+        negatives = max(1, round(negatives * 0.45))
     main = r.sample(CATS, 2)
     cat_w = [6 if c == main[0] else 3 if c == main[1] else r.random() * 0.8 for c in CATS]
     cat_counts = dict(sorted(zip(CATS, scale_to(cat_w, negatives, r)), key=lambda kv: -kv[1]))
@@ -282,23 +297,6 @@ for n, k in enumerate(sorted(chosen, key=lambda k: (-inters[k]["acc_recent"], k)
     users = dict(zip(USERS, scale_to(user_w, negatives + positives, r)))
     hours = scale_to(hourly(r, night=r.random() < 0.3), negatives, r)
     severity = dict(zip(["感覺不安", "差點發生事故", "曾經擦撞"], scale_to([0.5, 0.38 + r.random() * 0.1, 0.08], negatives, r)))
-    if kind == "hot":
-        stage = r.choice(["已收到", "現勘中", "已排程", "改善中"])
-    elif kind == "early":
-        stage = r.choice(["已收到", "現勘中"])
-    elif kind == "praise":
-        stage = "已改善"
-    else:
-        stage = "收集中"
-    # weather is a gentler visual scale than the action threshold (20): storm only when many people agree
-    if positives > negatives:
-        weather = "sunny"
-    elif negatives >= WX_STORM:
-        weather = "storm"
-    elif negatives >= WX_CLOUDY:
-        weather = "cloudy"
-    else:
-        weather = "sunny"
     owners = []
     for c in list(cat_counts)[:2]:
         for o in OWNER[c]:
@@ -325,26 +323,81 @@ for n, k in enumerate(sorted(chosen, key=lambda k: (-inters[k]["acc_recent"], k)
     if r.random() < 0.4:
         history.append({"year": r.choice([2021, 2022, 2023]), "text": "路面刨鋪"})
     locations.append({
-        "id": lid, "name": "／".join(d["names"]), "lon": round(d["lon"], 6), "lat": round(d["lat"], 6),
+        "id": lid, "name": "／".join(d["names"]), "district": d["district"], "lon": round(d["lon"], 6), "lat": round(d["lat"], 6),
         "real": {"acc_by_year": d["acc_by_year"], "years": YEARS, "acc_recent": d["acc_recent"], "a1_total": d["a1_total"],
                  "level": "high" if d["acc_recent"] >= ACC_HIGH else "low"},
         "mock": True,
         "reports": {"concern": negatives, "praise": positives, "categories": cat_counts, "users": users,
-                    "hours": hours, "severity": severity, "level": "high" if negatives >= 20 else "low"},
-        "weather": weather, "stage": stage, "owners": owners, "summary": summary,
+                    "hours": hours, "severity": severity},
+        "_kind": kind, "_stage": r.choice(["已收到", "現勘中", "已排程", "改善中"] if kind == "hot" else ["已收到", "現勘中"]),
+        "owners": owners, "summary": summary,
         "comments": comments, "history": sorted(history, key=lambda h: h["year"]),
     })
 
+# "Many reports" is relative to this area (top 30%), the same ranking logic as "many accidents".
+concerns = np.array([L["reports"]["concern"] for L in locations])
+REPORT_HIGH = int(math.ceil(np.percentile(concerns, REPORT_HIGH_PCT)))
+REPORT_SOME = int(math.ceil(np.percentile(concerns, REPORT_SOME_PCT)))
 for L in locations:
-    q = (L["real"]["level"], L["reports"]["level"])
+    rp = L["reports"]
+    rp["level"] = "high" if rp["concern"] >= REPORT_HIGH else "low"
+    L["improved"] = rp["praise"] > rp["concern"]
+    L["care"] = "many" if rp["concern"] >= REPORT_HIGH else "some" if rp["concern"] >= REPORT_SOME else "few"
+    q = (L["real"]["level"], rp["level"])
     L["quadrant"] = {("high", "high"): "priority", ("low", "high"): "prevent", ("high", "low"): "blind", ("low", "low"): "calm"}[q]
+    L["route"], L["route_reason"] = "none", ""
+board = sorted([L for L in locations if not L["improved"]], key=lambda L: (-L["reports"]["concern"], L["id"]))
+for i, L in enumerate(board, 1):
+    L["overall_rank"] = i
+    if i <= N_RANK:
+        L["route"] = "rank"
+        L["route_reason"] = f"全區本月關心排行第 {i} 名，送市府處理。"
+
+# Three ways onto the city's list: overall ranking, each district's own ranking, fast track.
+for dist in sorted({L["district"] for L in locations}):
+    board = sorted([L for L in locations if L["district"] == dist and not L["improved"]], key=lambda L: (-L["reports"]["concern"], L["id"]))
+    for i, L in enumerate(board, 1):
+        L["district_rank"] = i
+    for i, L in enumerate(board[:N_DISTRICT], 1):
+        if L["route"] == "none":
+            L["route"] = "district"
+            L["route_reason"] = f"全區排名排不上，但它是{dist}本月關心排行第 {i} 名，依各區名額送審。"
+# Fast track, real: few reports but a fatal crash happened here (open data).
+low_with_death = sorted([L for L in locations if L["route"] == "none" and L["care"] != "many" and L["real"]["a1_total"] > 0 and not L["improved"]],
+                        key=lambda L: (-L["real"]["acc_recent"], L["id"]))
+for L in low_with_death[:N_FAST_REAL]:
+    L["route"] = "fast"
+    L["route_reason"] = f"回報只有 {L['reports']['concern']} 人，但這裡 2019–2025 年發生過 {L['real']['a1_total']} 件死亡事故（真實資料），直接送審。"
+# Fast track, mock: one person reported a collision with a photo.
+for L in locations:  # many people care, but this month's slots are taken
+    if L["route"] == "none" and L["care"] == "many":
+        L["route"] = "next"
+        L["route_reason"] = f"全區排行第 {L['overall_rank']} 名，本月名額已滿，下個月優先處理。"
+for L in sorted(locations, key=lambda L: L["id"]):
+    if L["route"] == "none" and L["care"] == "few" and not L["improved"] and L["reports"]["severity"].get("曾經擦撞", 0) >= 1:
+        L["route"] = "fast"
+        L["route_reason"] = "回報人數少，但有人回報「曾經擦撞」並附上照片（示意），直接送審。"
+        break
+for L in locations:
+    kind, stage = L.pop("_kind"), L.pop("_stage")
+    if kind == "praise":
+        L["stage"] = "已改善"
+    elif L["route"] == "rank":
+        L["stage"] = stage
+    elif L["route"] in ("fast", "district"):
+        L["stage"] = "已收到"
+    else:
+        L["stage"] = "收集中"
 
 (OUT / "locations.json").write_text(json.dumps(locations, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 meta = {
     "area": "中壢火車站周邊", "bbox": [WEST, SOUTH, EAST, NORTH], "years": YEARS, "recent": list(RECENT),
-    "acc_high_threshold": ACC_HIGH, "report_high_threshold": 20, "weather_storm": WX_STORM, "weather_cloudy": WX_CLOUDY, "snap_m": SNAP_M, "cluster_m": CLUSTER_M,
+    "acc_high_threshold": ACC_HIGH, "report_high_threshold": REPORT_HIGH, "report_some_threshold": REPORT_SOME,
+    "report_high_pct": REPORT_HIGH_PCT, "report_some_pct": REPORT_SOME_PCT, "district_quota": N_DISTRICT,
+    "districts": dict(Counter(L["district"] for L in locations)), "rank_quota": N_RANK, "snap_m": SNAP_M, "cluster_m": CLUSTER_M,
     "n_intersections_found": len(inters), "seed": SEED, **area,
     "quadrants": dict(Counter(L["quadrant"] for L in locations)),
+    "care": dict(Counter(L["care"] for L in locations)), "routes": dict(Counter(L["route"] for L in locations)),
     "sources": {
         "accidents": "桃園市政府開放資料「桃園市A1及A2類道路交通事故」https://data.gov.tw/dataset/46364（真實資料）",
         "roads": "© OpenStreetMap contributors（ODbL）",

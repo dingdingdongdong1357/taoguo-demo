@@ -43,6 +43,10 @@
   A.select(T.id, false); document.getElementById("back").click();
   check(S.sel === null, "「回到全部路口」可以返回");
   check(!document.getElementById("filters"), "地圖上沒有運具篩選（方案 B）");
+  check(document.querySelectorAll(".mk.care-many, .mk.care-some, .mk.care-few, .mk.improved").length === S.locs.length, "標記用關心程度呈現（不是天氣）");
+  check(document.querySelectorAll("#pin .brow").length > 0 && document.querySelectorAll("#pin .btabs button").length >= 2, "概覽有各區排行與行政區切換");
+  var tabs = document.querySelectorAll("#pin .btabs button"); tabs[1].click();
+  check(document.querySelector("#pin .btabs button[aria-selected=true]").textContent === tabs[1].textContent, "可以切換到另一個行政區的排行");
 
   // profile
   var L = S.locs.filter(function (x) { return x.quadrant === "prevent"; })[0];
@@ -52,6 +56,7 @@
   var note = document.querySelector("#pin .accnote").textContent;
   var total = L.real.acc_by_year.reduce(function (a, b) { return a + b; }, 0);
   check(note.indexOf(String(total)) >= 0 && note.indexOf(String(L.real.acc_recent)) >= 0, "小檔案的真實事故數字與資料一致");
+  check(document.querySelectorAll("#pin .routes li").length === 3, "小檔案說明三條送審路徑");
   check(document.querySelectorAll("#pin .badge.mock").length >= 5 && document.querySelectorAll("#pin .badge.real").length >= 1, "小檔案標示真實／示意");
 
   // report flow
@@ -66,7 +71,16 @@
   try {
     clickOpt("就是我");
     clickOpt("這裡要注意");
-    clickOpt(L.name);
+    var quick = [].slice.call(document.querySelectorAll("#chat .opt")).some(function (x) { return x.textContent === L.name; });
+    if (quick) clickOpt(L.name);
+    else {
+      clickOpt("我去地圖上點");  // pick on the map with a real tap on the marker
+      var me2 = S.markers[L.id].el, r2 = me2.getBoundingClientRect();
+      var o2 = { bubbles: true, clientX: r2.left + r2.width / 2, clientY: r2.top + r2.height / 2, pointerId: 2, pointerType: "touch", isPrimary: true };
+      me2.dispatchEvent(new PointerEvent("pointerdown", o2));
+      me2.dispatchEvent(new PointerEvent("pointerup", o2));
+      check(!document.getElementById("phone").classList.contains("peek"), "在地圖上點路口後，回報視窗恢復");
+    }
     var cats = [].slice.call(document.querySelectorAll("#chat .opts")).pop().querySelectorAll(".opt");
     cats[0].click();
     clickOpt("上學上班尖峰");

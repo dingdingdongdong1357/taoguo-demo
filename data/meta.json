@@ -20,9 +20,16 @@
   2025
  ],
  "acc_high_threshold": 64,
- "report_high_threshold": 20,
- "weather_storm": 40,
- "weather_cloudy": 12,
+ "report_high_threshold": 27,
+ "report_some_threshold": 12,
+ "report_high_pct": 70,
+ "report_some_pct": 35,
+ "district_quota": 2,
+ "districts": {
+  "中壢區": 23,
+  "平鎮區": 6
+ },
+ "rank_quota": 6,
  "snap_m": 35,
  "cluster_m": 30,
  "n_intersections_found": 113,
@@ -32,10 +39,22 @@
  "a1_recent": 15,
  "share_recent_at_intersections": 0.298,
  "quadrants": {
-  "priority": 11,
-  "blind": 7,
-  "prevent": 7,
-  "calm": 4
+  "priority": 7,
+  "blind": 11,
+  "prevent": 4,
+  "calm": 7
+ },
+ "care": {
+  "many": 11,
+  "few": 10,
+  "some": 8
+ },
+ "routes": {
+  "rank": 6,
+  "fast": 3,
+  "none": 15,
+  "next": 3,
+  "district": 2
  },
  "sources": {
   "accidents": "桃園市政府開放資料「桃園市A1及A2類道路交通事故」https://data.gov.tw/dataset/46364（真實資料）",

@@ -15,22 +15,28 @@
     blind: { name: "可能的盲點", short: "盲點", v: "--q-blind", desc: "事故多，回報卻很少。可能大家習慣了，市府可以主動檢視。" },
     calm: { name: "相對安全", short: "安全", v: "--q-calm", desc: "事故少，覺得危險的人也少。" }
   };
-  var WX_TEXT = { storm: "雷雨：很多人覺得這裡危險", cloudy: "多雲：有些人覺得要注意", sunny: "晴：目前回報很少" };
-  function wxText(L) { return L.weather === "sunny" && L.reports.praise > L.reports.concern ? "晴：多數人說這裡變好了" : WX_TEXT[L.weather]; }
+  var CARE_TEXT = { many: "很多人關心這裡", some: "有人關心這裡", few: "回報還少：資訊不足，不代表安全" };
+  var ROUTE = {
+    rank: { name: "全區排行", tag: "", desc: function () { return "每月全區最多人關心的前 " + S.meta.rank_quota + " 名"; } },
+    district: { name: "各區排行", tag: "區", desc: function () { return "每個行政區自己的前 " + S.meta.district_quota + " 名，人少的區也有名額"; } },
+    fast: { name: "快速通道", tag: "快", desc: function () { return "回報少但情況嚴重：曾經擦撞並附照片、發生過死亡事故，或里長、學校代表回報"; } }
+  };
+  function careText(L) { return L.improved ? "多數人說這裡變好了" : CARE_TEXT[L.care]; }
+  function careBadge(L, size) {
+    return '<span class="cb care-' + L.care + (L.improved ? " improved" : "") + '" style="width:' + size + "px;height:" + size + "px;font-size:" + Math.round(size * 0.36) + 'px">' +
+      (L.improved ? "✓" : L.reports.concern) + "</span>";
+  }
 
-  var S = { roads: null, locs: [], meta: null, byId: {}, layer: "reports", sel: null, me: null, map: null, markers: {}, labels: [] };
+  var S = { roads: null, locs: [], meta: null, byId: {}, board: null, layer: "reports", sel: null, me: null, map: null, markers: {}, labels: [] };
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function sum(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
   function fmt(n) { return Number(n).toLocaleString("zh-TW"); }
 
   /* ---------------- derived values (same rules as data-prep/prepare.py) ---------------- */
-  function weatherOf(L) {
-    var r = L.reports;
-    if (r.praise > r.concern) return "sunny";
-    if (r.concern >= S.meta.weather_storm) return "storm";
-    if (r.concern >= S.meta.weather_cloudy) return "cloudy";
-    return "sunny";
+  function careOf(L) {
+    var c = L.reports.concern;
+    return c >= S.meta.report_high_threshold ? "many" : c >= S.meta.report_some_threshold ? "some" : "few";
   }
   function quadOf(L) {
     var hiA = L.real.acc_recent >= S.meta.acc_high_threshold, hiR = L.reports.concern >= S.meta.report_high_threshold;
@@ -48,9 +54,10 @@
     return out;
   }
   function refresh(L) {
-    L.weather = weatherOf(L);
+    L.care = careOf(L);
+    L.improved = L.reports.praise > L.reports.concern;
     L.quadrant = quadOf(L);
-    if (L.quadrant !== "calm" && L.stage === "收集中") L.stage = "已收到";
+    if (L.route === "none" && L.care === "many") { L.route = "next"; L.route_reason = "很多人關心，排入下個月的名額。"; }
   }
 
   /* ---------------- map ---------------- */
@@ -200,9 +207,10 @@
       } else {
         var v = L.reports.concern;
         size = Math.round((30 + Math.min(Math.sqrt(v) * 3.2, 30)) * zf);
-        cls = "mk";
-        html = K.weather(L.weather, Math.round(size * 0.66)) + '<span class="n">' + v + "</span>";
-        label = L.name + "，回報 " + v + " 人（示意資料），" + wxText(L);
+        cls = "mk care-" + L.care + (L.improved ? " improved" : "");
+        html = '<span class="n">' + (L.improved ? "✓" : v) + "</span>" +
+          (ROUTE[L.route] && ROUTE[L.route].tag ? '<i class="rtb">' + ROUTE[L.route].tag + "</i>" : "");
+        label = L.name + "，回報 " + v + " 人（示意資料），" + careText(L);
       }
       if (S.layer !== "compare") { el.style.background = ""; el.style.borderColor = ""; }
       el.className = cls + sel;
@@ -233,7 +241,9 @@
         return '<span class="li"><i style="width:12px;height:12px;background:var(' + QUAD[k].v + ');display:inline-block;border-radius:2px"></i>' + QUAD[k].name + "</span>";
       }).join("") + '</div><div class="row">事故（真實）× 回報（示意）</div>';
     } else {
-      h = '<div class="row"><span class="li">' + K.weather("storm", 18) + "雷雨</span><span class=\"li\">" + K.weather("cloudy", 18) + "多雲</span><span class=\"li\">" + K.weather("sunny", 18) + '晴</span><span class="li"><span class="badge mock">示意資料</span></span></div><div class="row">圖示越大＝越多人「也遇過」</div>';
+      var sw = function (c, t, txt) { return '<span class="li"><span class="cb care-' + c + '" style="width:18px;height:18px;font-size:10px">' + t + "</span>" + txt + "</span>"; };
+      h = '<div class="row">' + sw("many", "", "很多人關心") + sw("some", "", "有人關心") + sw("few", "", "回報還少") + sw("few improved", "✓", "變好了") + "</div>" +
+        '<div class="row"><span class="li"><i class="rtb static">快</i>快速通道</span><span class="li"><i class="rtb static">區</i>各區名額</span><span class="li"><span class="badge mock">示意資料</span></span>數字＝回報人數</div>';
     }
     $("legend").innerHTML = h;
   }
@@ -273,13 +283,15 @@
         var q = QUAD[k];
         return '<button class="qcard" style="--qc:var(' + q.v + ')" data-quad="' + k + '"><b>' + q.name + "</b><span>" + q.desc + "</span><em>" + counts[k] + " 個路口</em></button>";
       }).join("") + "</div></div>" +
+      boardHTML() +
       '<div class="sec"><div class="sec-h"><h3>從這幾個路口看起</h3></div><div class="picks">' +
       picks.map(function (L) {
-        return '<button class="pick" data-id="' + L.id + '">' + K.weather(L.weather, 28) + '<span><span class="nm">' + esc(L.name) + '</span><br><span class="sub">' + QUAD[L.quadrant].name + "・回報 " + L.reports.concern + " 人・近三年事故 " + L.real.acc_recent + " 件</span></span></button>";
+        return '<button class="pick" data-id="' + L.id + '">' + careBadge(L, 30) + '<span><span class="nm">' + esc(L.name) + '</span><br><span class="sub">' + QUAD[L.quadrant].name + "・回報 " + L.reports.concern + " 人・近三年事故 " + L.real.acc_recent + " 件</span></span></button>";
       }).join("") + "</div></div>" +
       '<div class="sec"><p class="note"><b>資料說明</b>　事故：' + esc(S.meta.sources.accidents) + "。回報、留言、處理進度與權責單位皆為示意資料，用來展示系統運作方式。道路：" + esc(S.meta.sources.roads) + "。</p></div>";
     $("pin").innerHTML = html;
-    $("pin").querySelectorAll(".pick").forEach(function (b) { b.addEventListener("click", function () { select(b.dataset.id, true); }); });
+    $("pin").querySelectorAll(".pick, .brow").forEach(function (b) { b.addEventListener("click", function () { select(b.dataset.id, true); }); });
+    $("pin").querySelectorAll(".btabs button").forEach(function (b) { b.addEventListener("click", function () { S.board = b.dataset.d; renderOverview(); }); });
     $("pin").querySelectorAll(".qcard").forEach(function (b) {
       b.addEventListener("click", function () {
         setLayer("compare");
@@ -287,6 +299,23 @@
       });
     });
     renderMarkers();
+  }
+
+  /* Each district keeps its own ranking, so quieter districts are not drowned out. */
+  var ROUTE_LABEL = { rank: "全區排行", district: "各區名額", fast: "快速通道", next: "下個月優先", none: "收集中" };
+  function boardHTML() {
+    var dists = Object.keys(S.meta.districts).sort(function (a, b) { return S.meta.districts[b] - S.meta.districts[a]; });
+    var d = S.board && dists.indexOf(S.board) >= 0 ? S.board : dists[0];
+    var rows = S.locs.filter(function (L) { return L.district === d && !L.improved; })
+      .sort(function (a, b) { return b.reports.concern - a.reports.concern; }).slice(0, 5);
+    return '<div class="sec"><div class="sec-h"><h3>各區關心排行（本月）</h3><span class="badge mock">示意</span></div>' +
+      '<p class="note">每個行政區有自己的排行榜。全區前 ' + S.meta.rank_quota + " 名、各區前 " + S.meta.district_quota + " 名，加上快速通道，會送市府處理。</p>" +
+      '<div class="tabs btabs" role="tablist">' + dists.map(function (x) {
+        return '<button role="tab" data-d="' + x + '" aria-selected="' + (x === d) + '">' + x + "</button>";
+      }).join("") + "</div>" +
+      '<ol class="board">' + rows.map(function (L, i) {
+        return '<li><button class="brow" data-id="' + L.id + '"><b class="mono">' + (i + 1) + '</b><span class="nm">' + esc(L.name) + '</span><span class="mono v">' + L.reports.concern + ' 人</span><span class="rt rt-' + L.route + '">' + ROUTE_LABEL[L.route] + "</span></button></li>";
+      }).join("") + "</ol></div>";
   }
 
   /* ---------------- panel: location profile ---------------- */
@@ -324,9 +353,9 @@
     var accSum = sum(L.real.acc_by_year);
     var html =
       '<button class="back" id="back">← 回到全部路口</button>' +
-      '<div class="titlerow"><div class="wx">' + K.weather(L.weather, 52) + '</div><div><p class="eyebrow">路口小檔案</p><h1 class="ptitle">' + esc(L.name) + '</h1></div></div>' +
+      '<div class="titlerow"><div class="wx">' + careBadge(L, 52) + '</div><div><p class="eyebrow">路口小檔案</p><h1 class="ptitle">' + esc(L.name) + '</h1></div></div>' +
       '<div class="tagsrow"><span class="qtag" style="--qc:var(' + q.v + ');background:var(' + q.v + ')">' + q.name + '</span><span class="stagetag">處理進度：' + L.stage + "</span></div>" +
-      '<p class="wxline">' + wxText(L) + "</p>" +
+      '<p class="wxline">' + careText(L) + "・" + esc(L.district) + "</p>" +
 
       '<div class="sec"><div class="sec-h"><h3>有多少人也遇過</h3><span class="badge mock">示意</span></div>' +
       '<div class="big"><b class="mono">' + r.concern + '</b><span>人回報這裡要注意' + (r.praise ? "・" + r.praise + " 人說變好了" : "") + "</span></div>" +
@@ -359,7 +388,13 @@
 
       '<div class="sec"><div class="sec-h"><h3>處理進度</h3><span class="badge mock">示意</span></div><ol class="steps">' +
       STAGES.map(function (s, i) { return '<li class="' + (i < stageIdx ? "is-done" : i === stageIdx ? "is-now" : "") + '"><i></i>' + s + "</li>"; }).join("") + "</ol>" +
-      (L.stage === "收集中" ? '<p class="note">回報達 ' + S.meta.report_high_threshold + " 人後，會整理成一個案件送市府。</p>" : "") + "</div>" +
+      "</div>" +
+      '<div class="sec"><div class="sec-h"><h3>怎麼送到市府</h3><span class="badge mock">示意</span></div><ul class="routes">' +
+      ["rank", "district", "fast"].map(function (k) {
+        return '<li class="' + (L.route === k ? "on" : "") + '"><b>' + (ROUTE[k].tag ? '<i class="rtb static">' + ROUTE[k].tag + "</i>" : "") + ROUTE[k].name + "</b><span>" + ROUTE[k].desc() + "</span></li>";
+      }).join("") + "</ul>" +
+      '<p class="accnote">' + esc(L.route_reason || "回報還在累積，這個月還沒進入名單。") + "</p>" +
+      (L.district_rank ? '<p class="note">' + esc(L.district) + "本月關心排行第 " + L.district_rank + " 名</p>" : "") + "</div>" +
 
       '<div class="sec"><div class="sec-h"><h3>誰管這裡</h3><span class="badge mock">示意</span></div><div class="owners">' +
       L.owners.map(function (o) { return '<span class="owner">' + esc(o) + "</span>"; }).join("") + "</div>" +

@@ -85,7 +85,35 @@ body[data-map-ready] .maploading{display:none}
 .mk:hover{transform:scale(1.08)}
 .mk{transition:transform .15s ease}
 .mk.sel{outline:3px solid var(--accent);outline-offset:3px;z-index:2}
-.mk .n{position:absolute;right:-8px;top:-8px;min-width:20px;height:20px;padding:0 4px;box-sizing:border-box;border-radius:10px;background:var(--ink);color:var(--bg);font:600 11px/20px var(--f-mono);text-align:center}
+/* care levels: one hue (how many people care), never "safe" vs "dangerous" */
+.mk .n{font:600 13px/1 var(--f-mono)}
+.mk.care-many{background:var(--accent);border-color:var(--accent);color:#fff}
+.mk.care-some{background:color-mix(in srgb,var(--accent) 22%,var(--surface));border-color:var(--accent);color:var(--ink)}
+.mk.care-few{background:var(--surface);border:2px dashed var(--asphalt-2);color:var(--muted)}
+.mk.improved{background:var(--surface);border:2.5px solid var(--sunny);color:var(--sunny)}
+.mk.improved .n{font-size:15px}
+.mk .rtb{position:absolute;left:-7px;top:-7px}
+.rtb{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:3px;background:var(--marking);color:#1F2427;font:700 11px/1 var(--f-body);font-style:normal;border:1.5px solid var(--ink)}
+.rtb.static{margin-right:5px;vertical-align:-3px}
+.cb{display:inline-grid;place-items:center;flex:none;border-radius:50%;box-sizing:border-box;font-family:var(--f-mono);font-weight:600;line-height:1}
+.cb.care-many{background:var(--accent);color:#fff;border:2px solid var(--accent)}
+.cb.care-some{background:color-mix(in srgb,var(--accent) 22%,var(--surface));color:var(--ink);border:2px solid var(--accent)}
+.cb.care-few{background:var(--surface);color:var(--muted);border:2px dashed var(--asphalt-2)}
+.cb.improved{background:var(--surface);color:var(--sunny);border:2.5px solid var(--sunny)}
+.board{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.brow{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto;gap:8px;align-items:center;width:100%;padding:7px 8px;border:1px solid var(--line);background:transparent;text-align:left;border-radius:2px;font-size:13px}
+.brow:hover{background:var(--soft)}
+.brow .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brow .v{color:var(--muted);font-size:12px}
+.rt{font-size:11px;padding:2px 6px;border-radius:2px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.rt-rank{background:var(--accent);border-color:var(--accent);color:#fff}
+.rt-district,.rt-fast{background:var(--marking);border-color:var(--ink);color:#1F2427}
+.rt-next{border-color:var(--accent);color:var(--accent)}
+.routes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.routes li{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--line);border-radius:2px;color:var(--muted);font-size:12.5px}
+.routes li b{color:var(--ink);font-size:13px}
+.routes li.on{border:2px solid var(--ink);background:var(--soft)}
+.routes li.on b::after{content:"　← 這個路口";color:var(--accent);font-weight:700}
 .mk.acc{background:var(--ink);border-color:var(--ink);color:var(--bg);font:600 12px var(--f-mono)}
 .mk.acc.low{background:var(--surface);color:var(--ink)}
 .mk.quad{border-radius:2px;color:#fff;font-size:12px;font-weight:700;padding:0 7px;height:26px;width:auto!important;white-space:nowrap}

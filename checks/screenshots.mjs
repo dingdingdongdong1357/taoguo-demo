@@ -1,6 +1,6 @@
 // High-resolution screenshots of the demo for the proposal, via Chrome DevTools Protocol.
 // Waits until the map has really loaded (body[data-map-ready="1"]) before capturing.
-// Usage: (serve the demo on :8765 first)  node checks/screenshots.mjs "<path to chrome.exe>"
+// Usage: (serve the demo first, e.g. python dev_server.py)  node checks/screenshots.mjs "<path to chrome.exe>" [port]
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -8,11 +8,11 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const chrome = process.argv[2];
-const base = "http://127.0.0.1:8765/";
+const base = `http://127.0.0.1:${process.argv[3] || 8765}/`;
 const outDir = join(dirname(fileURLToPath(import.meta.url)), "..", "screenshots");
 const shots = [
   { name: "demo_map", hash: "", w: 1600, h: 1000 },
-  { name: "demo_profile", hash: "#profile-L19", w: 1600, h: 1000 },
+  { name: "demo_profile", hash: "#profile-L21", w: 1600, h: 1000 },
   { name: "demo_report", hash: "#report", w: 1600, h: 1000 },
   { name: "demo_compare", hash: "#compare", w: 1600, h: 1000 },
   { name: "demo_accidents", hash: "#accidents", w: 1600, h: 1000 },

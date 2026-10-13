@@ -1,29 +1,9 @@
-/* Hand-drawn geometric graphics: weather icons, avatars, small charts. Colours come from CSS variables. */
+/* Hand-drawn geometric graphics: avatars, small charts. Colours come from CSS variables. */
 (function () {
   "use strict";
   var USER_VAR = { "行人": "--u-walk", "機車": "--u-moto", "汽車": "--u-car", "自行車": "--u-bike", "公車乘客": "--u-bus" };
   function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
   function userColor(u) { return "var(" + (USER_VAR[u] || "--muted") + ")"; }
-
-  function weather(kind, size) {
-    size = size || 28;
-    var c = kind === "storm" ? "var(--storm)" : kind === "cloudy" ? "var(--cloudy)" : "var(--sunny)";
-    var cloud = '<path d="M9 23h15a5 5 0 0 0 0-10 7 7 0 0 0-13.4-1.6A5.2 5.2 0 0 0 9 23z" fill="' + c + '"/>';
-    var body;
-    if (kind === "sunny") {
-      var rays = "";
-      for (var i = 0; i < 8; i++) {
-        var a = i * Math.PI / 4, x1 = 16 + Math.cos(a) * 9.5, y1 = 16 + Math.sin(a) * 9.5, x2 = 16 + Math.cos(a) * 13, y2 = 16 + Math.sin(a) * 13;
-        rays += '<line x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '" stroke="' + c + '" stroke-width="2.4" stroke-linecap="round"/>';
-      }
-      body = '<circle cx="16" cy="16" r="6.5" fill="' + c + '"/>' + rays;
-    } else if (kind === "cloudy") {
-      body = cloud;
-    } else {
-      body = '<g transform="translate(0,-3)">' + cloud + '</g><path d="M17 20l-4 6h3.5l-2 5 6-7.5h-3.6l2.2-3.5z" fill="var(--ink)"/>';
-    }
-    return '<svg viewBox="0 0 32 32" width="' + size + '" height="' + size + '" aria-hidden="true">' + body + "</svg>";
-  }
 
   /* A person: round head, body in their colour, the vehicle they ride drawn underneath. */
   function avatar(user, color, size) {
@@ -91,5 +71,5 @@
     return '<svg class="brand-mark" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="3" fill="var(--asphalt)"/><rect x="5" y="11" width="18" height="2" fill="var(--marking)"/><rect x="5" y="15" width="18" height="2" fill="var(--marking)"/><circle cx="20" cy="8" r="3" fill="var(--storm)" stroke="var(--surface)" stroke-width="1.2"/></svg>';
   }
 
-  window.SVGKit = { weather: weather, avatar: avatar, mini: mini, ring24: ring24, accBars: accBars, brand: brand, userColor: userColor, cssVar: cssVar };
+  window.SVGKit = { avatar: avatar, mini: mini, ring24: ring24, accBars: accBars, brand: brand, userColor: userColor, cssVar: cssVar };
 })();
