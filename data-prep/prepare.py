@@ -285,6 +285,17 @@ FIX = {  # what the city did when it fixed the main problem of a category
     "大車進出": ("規劃大車進出動線、加設反射鏡", "交通局"),
     "路面不平": ("路面刨鋪、調整人孔蓋高度", "工務局養工處"),
 }
+MINOR = {  # small repairs: done without a city update, so they do not open a new stage
+    ("視線被擋", "行道樹枝葉太低"): (["修剪路口行道樹"], "工務局養工處"),
+    ("視線被擋", "機車停在轉角"): (["轉角劃設禁止停車紅線"], "交通局"),
+    ("標線看不清楚", "斑馬線磨損"): (["補繪斑馬線"], "交通局"),
+    ("標線看不清楚", "夜間雨天看不到標線"): (["加設路面反光導標"], "交通局"),
+    ("路面不平", "積水與坑洞"): (["修補坑洞"], "工務局養工處"),
+    ("路面不平", "人孔蓋高低差"): (["調整人孔蓋高度"], "管線單位"),
+    ("沒有人行空間", "人行道被機車占用"): (["清除人行道上的機車", "加強拖吊"], "警察局"),
+    ("違停擋住視線", "路口接送臨停"): (["加強取締路口臨停"], "警察局"),
+    ("車速太快", "搶黃燈"): (["加設路口違規照相"], "警察局"),
+}
 PRAISE = {
     "視線被擋": "變電箱移走之後，右轉終於看得到斑馬線上的人了。",
     "號誌時間太短": "行人綠燈變長了，長輩可以慢慢走完。",
@@ -534,6 +545,27 @@ for L in locations:
     else:
         L["stage"] = "收集中"
 
+# Repair log per intersection: date, what was done, which reported problem it addresses.
+# A separate RNG per location, so adding this does not change any other mock number.
+for L in locations:
+    rr = random.Random(SEED + int(L["id"][1:]))
+    L["repairs"] = []
+    for i, t in enumerate(L["timeline"]):
+        if t["type"] != "update":
+            continue
+        cat, cause, n = L["timeline"][i - 1]["top_cause"]
+        L["repairs"].append({"kind": "update", "date": t["date"], "unit": t["unit"],
+                             "items": re.split(r"[、，]", t["text"]), "solves": [{"cat": cat, "cause": cause, "n": n}]})
+    if L["repairs"] or not (L["stage"] != "收集中" or rr.random() < 0.3):
+        continue
+    cands = [(c, cz, v) for c in [c for c, v in L["reports"]["categories"].items() if v > 0][:3]
+             for cz, v in L["reports"]["causes"][c].items() if (c, cz) in MINOR and v >= 2]
+    if cands:
+        c, cz, v = cands[0]
+        items, unit = MINOR[(c, cz)]
+        L["repairs"].append({"kind": "minor", "date": f"2026-{rr.randint(3, 8):02d}-{rr.randint(2, 27):02d}", "unit": unit,
+                             "items": items, "solves": [{"cat": c, "cause": cz, "n": v}]})
+
 (OUT / "locations.json").write_text(json.dumps(locations, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 meta = {
     "area": "中壢火車站周邊", "bbox": [WEST, SOUTH, EAST, NORTH], "years": YEARS, "recent": list(RECENT),
@@ -544,7 +576,8 @@ meta = {
     "quadrants": dict(Counter(L["quadrant"] for L in locations)),
     "care": dict(Counter(L["care"] for L in locations)), "data_start": ym(DATA_START), "data_now": ym(DATA_NOW),
     "cause_owner": {c: {cz: o for (cz, o, _) in v} for c, v in CAUSES.items()},
-    "updated": sum(any(t["type"] == "update" for t in L["timeline"]) for L in locations), "routes": dict(Counter(L["route"] for L in locations)),
+    "updated": sum(any(t["type"] == "update" for t in L["timeline"]) for L in locations),
+    "repairs": sum(len(L["repairs"]) for L in locations), "routes": dict(Counter(L["route"] for L in locations)),
     "sources": {
         "accidents": "桃園市政府開放資料「桃園市A1及A2類道路交通事故」https://data.gov.tw/dataset/46364（真實資料）",
         "roads": "© OpenStreetMap contributors（ODbL）",

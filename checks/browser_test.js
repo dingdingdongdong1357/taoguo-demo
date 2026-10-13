@@ -133,6 +133,19 @@
     clickOpt("關閉");
   } catch (e) { check(false, "我也遇過流程：" + e.message); }
 
+  // repair log per intersection
+  try {
+    var withLog = S.locs.filter(function (L) { return (L.repairs || []).length; });
+    var UP = withLog.filter(function (L) { return L.repairs.some(function (x) { return x.kind === "update"; }); })[0];
+    A.select(UP.id, false);
+    var rps = document.querySelectorAll("#repairs .rp");
+    check(rps.length === UP.repairs.length && rps[0].textContent.indexOf(UP.repairs[0].date.replace(/-/g, "/")) >= 0, "路口小檔案有維修紀錄：日期、修了什麼");
+    check(document.querySelector("#repairs .rp-solves") && document.querySelector("#repairs .rtrend"), "維修紀錄寫出處理了哪個問題，市府更新另有前後每月回報比較");
+    var NO = S.locs.filter(function (L) { return !(L.repairs || []).length; })[0];
+    A.select(NO.id, false);
+    check(document.querySelectorAll("#repairs .rp").length === 0 && document.getElementById("repairs").textContent.indexOf("還沒有維修紀錄") >= 0, "沒有維修紀錄的路口會說明");
+  } catch (e) { check(false, "維修紀錄：" + e.message); }
+
   // report flow: emergency notice, search inside the chat, plate-number guard — C2, C15, C18
   try {
     S.me = { user: "行人", color: "#1D5C8A" };
@@ -174,7 +187,36 @@
     check(!document.querySelector("#area-" + C1.id + " .gerr").hidden, "發布更新沒填內容會提醒");
     document.getElementById("u-text-" + C1.id).value = "重劃待轉區、加設機車停等區";
     f.dispatchEvent(new Event("submit", { cancelable: true }));
+    check((C1.repairs || []).some(function (x) { return x.kind === "update" && x.solves.length; }), "發布更新同時寫入維修紀錄與處理的問題");
     check(C1.timeline.filter(function (t) { return t.type === "update"; }).length >= 1 && C1.reports.concern === 0 && !document.getElementById("case-" + C1.id), "發布更新後開新階段、案件移出清單");
+    // manual adjustments: owners and this month's plan
+    var C3 = S.locs.filter(function (x) { return x.route === "district"; })[0], ai3 = C3.owners.slice();
+    var sel = document.getElementById("case-" + C3.id).querySelector(".oadd");
+    sel.value = sel.options[1].value; sel.dispatchEvent(new Event("change"));
+    var added = sel.options[1].value;
+    check(C3.owners.indexOf(added) >= 0 && document.getElementById("case-" + C3.id).querySelector(".aiorig"), "承辦可以加入權責單位，並保留 AI 原建議");
+    document.getElementById("case-" + C3.id).querySelector('.ox[data-rm="' + added + '"]').click();
+    check(C3.owners.join() === ai3.join(), "承辦可以移除權責單位");
+    document.getElementById("case-" + C3.id).querySelector('[data-act="1999"]').click();
+    check(JSON.parse(document.querySelector("#area-" + C3.id + " pre").textContent).agency_responsible === C3.owners.join("、"), "1999 案件用承辦調整後的權責單位");
+    document.getElementById("case-" + C3.id).querySelector('[data-act="defer"]').click();
+    var f3 = document.querySelector("#area-" + C3.id + " form");
+    f3.dispatchEvent(new Event("submit", { cancelable: true }));
+    check(!f3.querySelector(".gerr").hidden && !C3.deferred, "延到下個月沒選理由會擋下");
+    document.getElementById("f-why-" + C3.id).value = "本月人力已滿";
+    f3.dispatchEvent(new Event("submit", { cancelable: true }));
+    check(C3.route === "next" && C3.route_reason.indexOf("本月人力已滿") >= 0 && document.querySelector("#case-" + C3.id + '.case-next'), "延到下個月：案件移到延後區，市民端看得到理由");
+    check(document.getElementById("pin").textContent.indexOf("本月調整紀錄") >= 0, "承辦調整留下紀錄");
+    document.querySelector('[data-act="undefer"][data-id="' + C3.id + '"]').click();
+    check(C3.route === "district" && !C3.deferred, "可以改回本月處理");
+    var C4 = S.locs.filter(function (x) { return ["rank", "district", "fast"].indexOf(x.route) >= 0 && x.id !== C1.id && x.id !== C3.id; })[0], n4 = (C4.repairs || []).length;
+    document.getElementById("case-" + C4.id).querySelector('[data-act="minor"]').click();
+    var f4 = document.querySelector("#area-" + C4.id + " form");
+    f4.dispatchEvent(new Event("submit", { cancelable: true }));
+    check(!f4.querySelector(".gerr").hidden && (C4.repairs || []).length === n4, "登錄小修沒填內容會擋下");
+    document.getElementById("m-text-" + C4.id).value = "補繪斑馬線、修剪路口行道樹";
+    f4.dispatchEvent(new Event("submit", { cancelable: true }));
+    check(C4.repairs.length === n4 + 1 && C4.repairs[n4].items.length === 2 && C4.repairs[n4].solves.length >= 1 && document.getElementById("case-" + C4.id), "登錄小修：寫入維修紀錄、不開新階段");
     var C2 = S.locs.filter(function (x) { return x.route === "fast"; })[0];
     document.getElementById("case-" + C2.id).querySelector('[data-act="decline"]').click();
     var f2 = document.querySelector("#area-" + C2.id + " form");

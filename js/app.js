@@ -406,6 +406,33 @@
     return out;
   }
 
+  /* Repair log: when, what was done, which reported problem it addresses. For a city update we can also
+     show whether reports about that problem dropped (per month, previous stage vs now) — the city can check the work. */
+  function solvedTrend(L, rp, cat) {
+    if (rp.kind !== "update") return "";
+    var stages = L.timeline.filter(function (t) { return t.type === "stage"; }), k = -1;
+    L.timeline.forEach(function (t, i) { if (t.type === "update" && t.date === rp.date) k = i; });
+    var prev = L.timeline[k - 1], next = null;
+    for (var i = k + 1; i < L.timeline.length; i++) if (L.timeline[i].type === "stage") { next = L.timeline[i]; break; }
+    if (!prev || !next || !prev.top) return "";
+    var b0 = (prev.top.filter(function (x) { return x[0] === cat; })[0] || [cat, 0])[1];
+    var a0 = next.current ? (L.reports.categories[cat] || 0) : ((next.top || []).filter(function (x) { return x[0] === cat; })[0] || [cat, 0])[1];
+    var b = perMonth(b0, prev.months), a = perMonth(a0, next.months);
+    return '<span class="rtrend ' + (a <= b * 0.5 ? "good" : "same") + '">這個問題每月 ' + b + " → " + a + " 人回報" + (a <= b * 0.5 ? "" : "，沒有明顯減少") + "</span>";
+  }
+  function repairsHTML(L) {
+    var rs = (L.repairs || []).slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; });
+    if (!rs.length) return '<p class="note">這個路口還沒有維修紀錄。市府完成維修後會登錄在這裡：日期、修了什麼、處理了哪個問題。</p>';
+    return '<ul class="repairs">' + rs.map(function (rp) {
+      return '<li class="rp rp-' + rp.kind + '"><div class="rp-h"><b class="mono">' + esc(rp.date.replace(/-/g, "/")) + "</b><span>完工</span>" +
+        '<span class="rp-kind">' + (rp.kind === "update" ? "市府更新・開新階段" : "小修") + '</span><span class="owner sm">' + esc(rp.unit) + "</span></div>" +
+        '<ul class="rp-items">' + rp.items.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>" +
+        rp.solves.map(function (v) {
+          return '<p class="rp-solves">處理的問題：<b>' + esc(v.cat) + "</b>（" + esc(v.cause) + "，當時 " + v.n + " 人回報）" + solvedTrend(L, rp, v.cat) + "</p>";
+        }).join("") + "</li>";
+    }).join("") + "</ul>";
+  }
+
   function renderProfile(L) {
     var r = L.reports, q = QUAD[L.quadrant], stageIdx = STAGES.indexOf(L.stage);
     var cats = Object.keys(r.categories).filter(function (c) { return r.categories[c] > 0; }).sort(function (a, b) { return r.categories[b] - r.categories[a]; }).slice(0, 5);
@@ -428,6 +455,7 @@
       (hasUpdate(L) ? "" : '<p class="note">市府更新後才能說「這裡變好了」。</p>') + "</div>" +
 
       '<div class="sec"><div class="sec-h"><h3>時間線</h3><span class="badge mock">示意</span></div>' + timelineHTML(L) + "</div>" +
+      '<div class="sec" id="repairs"><div class="sec-h"><h3>維修紀錄（' + (L.repairs || []).length + '）</h3><span class="badge mock">示意</span></div>' + repairsHTML(L) + "</div>" +
 
       '<div class="sec"><div class="sec-h"><h3>什麼時候、遇到什麼</h3><span class="badge mock">示意</span></div>' +
       '<div class="twocol"><div>' + K.ring24(r.hours, 128) + '</div><div class="bars">' +
