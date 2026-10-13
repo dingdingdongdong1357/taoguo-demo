@@ -49,9 +49,23 @@
     var top = USERS.slice().sort(function (a, b) { return (r.users[b] || 0) - (r.users[a] || 0); })[0];
     var cats = Object.keys(r.categories).filter(function (c) { return r.categories[c] > 0; }).sort(function (a, b) { return r.categories[b] - r.categories[a]; });
     var out = r.concern + " 位用路人回報這裡，以" + top + "為主，多在" + TIMES[peak][0] + "。";
-    if (cats.length) out += "最常提到的是「" + cats[0] + "」" + (cats[1] ? "，其次是「" + cats[1] + "」" : "") + "。";
+    if (cats.length) {
+      var cz = r.causes && r.causes[cats[0]] ? Object.keys(r.causes[cats[0]])[0] : null;
+      out += "最常提到的是「" + cats[0] + "」" + (cz ? "（其中 " + r.causes[cats[0]][cz] + " 人說是「" + cz + "」）" : "") +
+        (cats[1] ? "，其次是「" + cats[1] + "」" : "") + "。";
+    }
     if (r.praise) out += "另有 " + r.praise + " 人表示這裡「變好了」。";
     return out;
+  }
+  function hasUpdate(L) { return L.timeline.some(function (t) { return t.type === "update"; }); }
+  function perMonth(n, months) { return Math.round(n / Math.max(months, 1) * 10) / 10; }
+  /* Before/after: compare the last finished stage with the current one, per month (stages differ in length). */
+  function compareStages(L) {
+    var stages = L.timeline.filter(function (t) { return t.type === "stage"; });
+    if (stages.length < 2) return null;
+    var prev = stages[stages.length - 2], cur = stages[stages.length - 1];
+    var a = perMonth(prev.concern, prev.months), b = perMonth(L.reports.concern, cur.months);
+    return { before: a, after: b, better: b <= a * 0.5 };
   }
   function refresh(L) {
     L.care = careOf(L);
@@ -274,6 +288,7 @@
       '<h1 class="ptitle">哪裡讓人「差一點」出事？</h1>' +
       '<p class="lede">市民回報差點出事的路口，其他人可以按「我也遇過」。地圖把市民的經驗和真實事故放在一起看，找出還沒出事、但大家都覺得危險的地方。</p>' +
       '<p class="note">點地圖上的圓圈，看每個路口的小檔案；右上角「＋ 我要回報」可以體驗回報流程。</p>' +
+      '<div class="search"><input id="q" type="search" autocomplete="off" placeholder="搜尋路名，例如：延平路" aria-label="搜尋路名"><ul class="qres" id="qres"></ul></div>' +
       '<div class="stats">' +
       '<div class="stat"><b>' + fmt(S.meta.accidents_recent) + '</b><span>近三年事故<br><span class="badge real">真實</span></span></div>' +
       '<div class="stat"><b>' + fmt(S.meta.a1_recent) + '</b><span>其中死亡事故<br><span class="badge real">真實</span></span></div>' +
@@ -291,6 +306,13 @@
       '<div class="sec"><p class="note"><b>資料說明</b>　事故：' + esc(S.meta.sources.accidents) + "。回報、留言、處理進度與權責單位皆為示意資料，用來展示系統運作方式。道路：" + esc(S.meta.sources.roads) + "。</p></div>";
     $("pin").innerHTML = html;
     $("pin").querySelectorAll(".pick, .brow").forEach(function (b) { b.addEventListener("click", function () { select(b.dataset.id, true); }); });
+    $("q").addEventListener("input", function () {
+      var hits = searchLocs(this.value);
+      $("qres").innerHTML = this.value.trim() ? (hits.length ? hits.map(function (L) {
+        return '<li><button class="brow" data-id="' + L.id + '">' + careBadge(L, 24) + '<span class="nm">' + esc(L.name) + '</span><span class="mono v">' + esc(L.district) + "</span></button></li>";
+      }).join("") : '<li class="note">找不到符合的路口。Demo 只有中壢火車站周邊 ' + S.locs.length + " 個路口。</li>") : "";
+      $("qres").querySelectorAll(".brow").forEach(function (b) { b.addEventListener("click", function () { select(b.dataset.id, true); }); });
+    });
     $("pin").querySelectorAll(".btabs button").forEach(function (b) { b.addEventListener("click", function () { S.board = b.dataset.d; renderOverview(); }); });
     $("pin").querySelectorAll(".qcard").forEach(function (b) {
       b.addEventListener("click", function () {
@@ -299,6 +321,13 @@
       });
     });
     renderMarkers();
+  }
+
+  function searchLocs(q) {
+    q = (q || "").trim().replace(/台/g, "臺");
+    if (!q) return [];
+    return S.locs.filter(function (L) { return L.name.replace(/台/g, "臺").indexOf(q) >= 0; })
+      .sort(function (a, b) { return b.reports.concern - a.reports.concern; }).slice(0, 6);
   }
 
   /* Each district keeps its own ranking, so quieter districts are not drowned out. */
@@ -343,6 +372,38 @@
     return out;
   }
 
+  /* Specific causes: what the AI would pull out of the text, voice and photos (mock), with the unit in charge. */
+  function causesHTML(L, cats) {
+    var rows = cats.filter(function (c) { return L.reports.causes && L.reports.causes[c]; }).map(function (c) {
+      var cz = L.reports.causes[c];
+      return '<div class="cause"><b>' + esc(c) + "</b><ul>" + Object.keys(cz).slice(0, 3).map(function (k) {
+        return "<li><span>" + esc(k) + '</span><span class="mono">' + cz[k] + ' 人</span><span class="owner sm">' + esc(ownerOf(c, k)) + "</span></li>";
+      }).join("") + "</ul></div>";
+    }).join("");
+    return rows ? '<div class="causes"><p class="b-label">具體原因（AI 整理）<span class="badge mock">示意</span></p>' + rows + "</div>" : "";
+  }
+  function ownerOf(cat, cause) { return (S.meta.cause_owner[cat] || {})[cause] || "待確認"; }
+
+  function timelineHTML(L) {
+    var cmp = compareStages(L), out = "";
+    if (cmp) {
+      out += '<p class="cmp ' + (cmp.better ? "good" : "same") + '">改善前每月約 <b>' + cmp.before + "</b> 人回報 → 改善後每月約 <b>" + cmp.after + "</b> 人" +
+        (cmp.better ? "：明顯減少" : "：沒有明顯減少，建議再次現勘") + "</p>";
+    }
+    out += '<ol class="tl">' + L.timeline.map(function (t) {
+      if (t.type === "update") {
+        return '<li class="tl-upd"><span class="tl-dot"></span><div><b>市府更新　' + esc(t.date.replace(/-/g, "/")) + "</b><p>" + esc(t.text) + '</p><small>' + esc(t.unit) + "</small></div></li>";
+      }
+      var cur = t.current, n = cur ? L.reports.concern : t.concern, pr = cur ? L.reports.praise : t.praise;
+      var period = t.start.replace("-", "/") + "–" + (t.end ? t.end.replace("-", "/") : "現在") + "（" + t.months + " 個月）";
+      return '<li class="tl-stage' + (cur ? " cur" : "") + '"><span class="tl-dot"></span><div><b>第 ' + t.n + " 階段" + (cur ? "（目前）" : "") + '</b><small>' + period + "</small>" +
+        "<p>" + n + " 人回報要注意" + (pr ? "、" + pr + " 人說變好了" : "") + "，每月約 " + perMonth(n, t.months) + " 人</p>" +
+        '<p class="tl-sum">' + esc(cur ? summaryOf(L) : t.summary) + "</p></div></li>";
+    }).join("") + "</ol>";
+    if (!hasUpdate(L)) out += '<p class="note">市府還沒有更新這個路口。市府完成改善並發布更新後，會開始新的階段，也才開放「這裡變好了」。</p>';
+    return out;
+  }
+
   function renderProfile(L) {
     var r = L.reports, q = QUAD[L.quadrant], stageIdx = STAGES.indexOf(L.stage);
     var cats = Object.keys(r.categories).filter(function (c) { return r.categories[c] > 0; }).sort(function (a, b) { return r.categories[b] - r.categories[a]; }).slice(0, 5);
@@ -361,7 +422,8 @@
       '<div class="big"><b class="mono">' + r.concern + '</b><span>人回報這裡要注意' + (r.praise ? "・" + r.praise + " 人說變好了" : "") + "</span></div>" +
       '<div class="crowd" aria-hidden="true">' + crowdHTML(r.users, 40) + "</div>" +
       '<div class="ulegend">' + USERS.map(function (u) { return '<span><i style="background:' + K.userColor(u) + '"></i>' + u + " " + (r.users[u] || 0) + "</span>"; }).join("") + "</div>" +
-      '<div class="actions"><button class="btn primary" id="metoo">我也遇過</button><button class="btn" id="better">這裡變好了</button></div></div>' +
+      '<div class="actions"><button class="btn primary" id="metoo">我也遇過</button><button class="btn" id="better"' + (hasUpdate(L) ? "" : ' disabled title="市府更新後才開放"') + '>這裡變好了</button></div>' +
+      (hasUpdate(L) ? "" : '<p class="note">市府更新後才能說「這裡變好了」。</p>') + "</div>" +
 
       '<div class="sec"><div class="sec-h"><h3>AI 摘要</h3><span class="badge mock">示意</span></div><p class="summary">' + esc(summaryOf(L)) + "</p></div>" +
 
@@ -370,6 +432,7 @@
       cats.map(function (c) {
         return '<div class="bar"><div class="lbl"><span>' + c + '</span><div class="track"><div class="fill" style="width:' + Math.round(r.categories[c] / catMax * 100) + '%"></div></div></div><span class="v">' + r.categories[c] + "</span></div>";
       }).join("") + "</div></div>" +
+      causesHTML(L, cats.slice(0, 3)) +
       '<div class="sevbar" aria-hidden="true">' + SEVERITY.map(function (s, i) {
         return '<span style="width:' + ((r.severity[s] || 0) / sevTotal * 100).toFixed(1) + "%;background:" + ["var(--line)", "var(--cloudy)", "var(--storm)"][i] + '"></span>';
       }).join("") + "</div>" +
@@ -386,6 +449,7 @@
 
       '<div class="sec"><div class="sec-h"><h3>兩邊對照</h3></div><p class="accnote"><b style="color:var(' + q.v + ')">' + q.name + "</b>：" + q.desc + "</p></div>" +
 
+      '<div class="sec"><div class="sec-h"><h3>時間線</h3><span class="badge mock">示意</span></div>' + timelineHTML(L) + "</div>" +
       '<div class="sec"><div class="sec-h"><h3>處理進度</h3><span class="badge mock">示意</span></div><ol class="steps">' +
       STAGES.map(function (s, i) { return '<li class="' + (i < stageIdx ? "is-done" : i === stageIdx ? "is-now" : "") + '"><i></i>' + s + "</li>"; }).join("") + "</ol>" +
       "</div>" +
@@ -404,8 +468,7 @@
       '<div class="tabs" role="tablist"><button role="tab" aria-selected="true" data-t="concern">要注意 ' + concernC.length + '</button><button role="tab" aria-selected="false" data-t="praise">變好了 ' + praiseC.length + "</button></div>" +
       '<ul class="voices" id="voices"></ul></div>' +
 
-      (L.history.length ? '<div class="sec"><div class="sec-h"><h3>修繕紀錄</h3><span class="badge mock">示意</span></div><ul class="timeline">' +
-        L.history.map(function (h) { return "<li><b>" + h.year + "</b><span>" + esc(h.text) + "</span></li>"; }).join("") + "</ul></div>" : "");
+      "";
     $("pin").innerHTML = html;
     var showVoices = function (tone) {
       var list = tone === "praise" ? praiseC : concernC;
@@ -425,10 +488,11 @@
   var R = {
     waitingForPick: false, ctx: null,
     open: function (opts) {
-      R.ctx = { loc: opts.loc || null, mode: opts.mode || null, quick: !!opts.quick, cat: null, time: null, sev: null, praise: null };
+      R.ctx = { loc: opts.loc || null, mode: opts.mode || null, quick: !!opts.quick, cat: null, time: null, freq: null, sev: null, praise: null };
       $("phone").hidden = false;
       $("chat").innerHTML = "";
       R.bot("嗨！這是「差一點地圖」的回報小幫手（示意）。");
+      R.bot('這裡用來回報「差點出事、讓人害怕」的路口。<br><b>緊急狀況</b>（大坑洞、號誌全滅、路樹倒塌）請直接打 <b>1999</b>；有人受傷請打 <b>110／119</b>。');
       if (!S.me) R.stepAvatar(); else R.afterAvatar();
     },
     close: function () { $("phone").hidden = true; R.waitingForPick = false; $("phone").classList.remove("peek"); },
@@ -486,19 +550,29 @@
     },
     stepWhere: function () {
       if (R.ctx.loc) { R.announce(); return; }
-      R.bot("在地圖上點一下那個路口，或從下面選一個。");
-      var near = S.locs.slice().sort(function (a, b) { return (b.reports.concern + b.reports.praise) - (a.reports.concern + a.reports.praise); }).slice(0, 4);
-      var w = R.opts(near.map(function (L) { return L.name; }).concat(["我去地圖上點"]), function (t) {
-        if (t === "我去地圖上點") {
-          R.waitingForPick = true; $("phone").classList.add("peek");
-          R.bot("好，點地圖上任何一個路口。");
-          return;
-        }
-        var L = S.locs.filter(function (x) { return x.name === t; })[0];
-        R.ctx.loc = L.id; R.announce(true);
-      });
+      R.bot("在地圖上點一下那個路口，或搜尋路名。");
+      var box = document.createElement("div"); box.className = "rsearch";
+      box.innerHTML = '<input id="rsearch" type="search" autocomplete="off" placeholder="搜尋路名，例如：中豐路" aria-label="搜尋路口">';
+      var list = document.createElement("div"); list.className = "opts";
+      var choose = function (L) { R.waitingForPick = false; box.remove(); list.remove(); R._pickWidget = null; R.ctx.loc = L.id; R.announce(); };
+      var draw = function (q) {
+        var hits = q.trim() ? searchLocs(q) : S.locs.slice().sort(function (a, b) { return (b.reports.concern + b.reports.praise) - (a.reports.concern + a.reports.praise); }).slice(0, 4);
+        list.innerHTML = "";
+        hits.forEach(function (L) {
+          var b = document.createElement("button"); b.className = "opt"; b.type = "button"; b.textContent = L.name;
+          b.addEventListener("click", function () { choose(L); });
+          list.appendChild(b);
+        });
+        var m = document.createElement("button"); m.className = "opt"; m.type = "button"; m.textContent = "我去地圖上點";
+        m.addEventListener("click", function () { $("phone").classList.add("peek"); R.bot("好，點地圖上任何一個路口。"); });
+        list.appendChild(m);
+        if (q.trim() && !hits.length) { var e = document.createElement("span"); e.className = "note"; e.textContent = "找不到符合的路口"; list.insertBefore(e, m); }
+      };
+      box.querySelector("input").addEventListener("input", function () { draw(this.value); });
+      draw("");
+      $("chat").appendChild(box); $("chat").appendChild(list); R.scroll();
       R.waitingForPick = true;
-      R._pickWidget = w;
+      R._pickWidget = { remove: function () { box.remove(); list.remove(); } };
     },
     pickLocation: function (id) {
       R.waitingForPick = false; $("phone").classList.remove("peek");
@@ -512,6 +586,11 @@
       pulse(L.id);
       var n = R.ctx.mode === "praise" ? L.reports.praise : L.reports.concern;
       var crowd = '<div class="crowd" style="margin-top:6px">' + crowdHTML(L.reports.users, 24) + "</div>";
+      if (R.ctx.mode === "praise" && !hasUpdate(L)) {
+        R.bot("這個路口市府還沒有發布改善更新，等改善完成後才能說「這裡變好了」。要改成回報這裡要注意嗎？");
+        R.opts(["改成回報要注意", "關閉"], function (t) { if (t === "關閉") R.close(); else { R.ctx.mode = "concern"; R.announce(true); } });
+        return;
+      }
       if (R.ctx.mode === "praise") {
         R.bot(n ? "已經有 <b>" + n + "</b> 人說這裡變好了。" + crowd : "你是第一個說這裡變好了的人！");
         R.bot("哪裡變好了？");
@@ -528,17 +607,20 @@
       } else R.stepCat();
     },
     stepCat: function () { R.bot("遇到什麼狀況？"); R.opts(CATS, function (t) { R.ctx.cat = t; R.stepTime(); }); },
-    stepTime: function () { R.bot("大概什麼時候？"); R.opts(TIMES.map(function (t) { return t[0]; }), function (t) { R.ctx.time = t; R.stepSev(); }); },
+    stepTime: function () { R.bot("大概什麼時候？"); R.opts(TIMES.map(function (t) { return t[0]; }), function (t) { R.ctx.time = t; R.stepFreq(); }); },
+    stepFreq: function () { R.bot("多常遇到？"); R.opts(["每天", "常常", "遇過一次"], function (t) { R.ctx.freq = t; R.stepSev(); }); },
     stepSev: function () { R.bot("有多危險？"); R.opts(SEVERITY, function (t) { R.ctx.sev = t; R.stepText(); }); },
     stepText: function () {
-      R.bot("想多說一點嗎？可以打字，正式版也可以直接錄語音（可說台語）。");
+      R.bot("想多說一點嗎？請描述路口的狀況，<b>不要寫出個人姓名、店名或車牌</b>。可以打字，正式版也可以直接錄語音（可說台語）。");
       var w = document.createElement("div"); w.style.alignSelf = "stretch"; w.style.display = "flex"; w.style.flexDirection = "column"; w.style.gap = "6px";
       w.innerHTML = '<label class="note" for="rtext">補充說明（選填）</label><textarea id="rtext" maxlength="200" placeholder="例如：右轉時看不到斑馬線上的人"></textarea>';
       var o = document.createElement("div"); o.className = "opts";
       ["送出", "略過，直接送出"].forEach(function (t) {
         var b = document.createElement("button"); b.className = "opt"; b.type = "button"; b.textContent = t;
         b.addEventListener("click", function () {
-          var v = $("rtext").value.trim(); w.remove(); o.remove();
+          var v = $("rtext").value.trim();
+          if (/[A-Z]{2,3}-?\d{3,4}|\d{3,4}-?[A-Z]{2,3}/i.test(v)) { R.bot("看起來有車牌號碼，請刪掉後再送出。我們回報的是路口，不是某個人。"); return; }
+          w.remove(); o.remove();
           if (v) R.me(v);
           R.ctx.text = v; R.finish();
         });
@@ -566,6 +648,7 @@
       var d = document.createElement("div"); d.className = "done";
       d.innerHTML = '<div class="rank">你是第<b>' + rank + "</b>位" + (R.ctx.mode === "praise" ? "說這裡變好了的人" : "回報這裡的人") + "</div>" +
         '<div class="stage"><div class="crowdline">' + crowdHTML(r.users, 14) + '</div><div class="me">' + K.avatar(S.me.user, S.me.color, 44) + '</div><div class="road"></div></div>' +
+        '<p class="mine">' + esc(R.ctx.mode === "praise" ? "你說：" + R.ctx.praise : "你回報：" + R.ctx.cat + "・" + R.ctx.time + "・" + (R.ctx.freq || "") + "・" + R.ctx.sev) + "</p>" +
         '<p class="note">' + (R.ctx.mode === "praise" ? "謝謝你！我們會把這句感謝轉給負責改善的單位。" : "我們每月會把這裡整理給市府。處理有進展時，會在這裡通知你。") + "</p>" +
         '<p class="note">（示意：這筆回報只存在你這次瀏覽，不會送出）</p>';
       $("chat").appendChild(d);

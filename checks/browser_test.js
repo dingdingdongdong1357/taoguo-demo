@@ -48,6 +48,26 @@
   var tabs = document.querySelectorAll("#pin .btabs button"); tabs[1].click();
   check(document.querySelector("#pin .btabs button[aria-selected=true]").textContent === tabs[1].textContent, "可以切換到另一個行政區的排行");
 
+  // search by road name (overview) — B1
+  A.select(S.locs[0].id, false); document.getElementById("back").click();
+  var q = document.getElementById("q"), road = S.locs[0].name.split("／")[0];
+  q.value = road; q.dispatchEvent(new Event("input"));
+  var hits = document.querySelectorAll("#qres .brow");
+  check(hits.length > 0 && [].every.call(hits, function (h) { return h.textContent.indexOf(road) >= 0; }), "搜尋路名會列出相符路口：" + road);
+  hits[0].click();
+  check(S.sel !== null, "點搜尋結果會打開小檔案");
+  A.select(S.locs[0].id, false); document.getElementById("back").click();
+
+  // stage timeline and causes — B4, B7, D4
+  var U = S.locs.filter(function (x) { return x.timeline.some(function (t) { return t.type === "update"; }); })[0];
+  var N = S.locs.filter(function (x) { return !x.timeline.some(function (t) { return t.type === "update"; }); })[0];
+  A.select(U.id, false);
+  check(document.querySelectorAll("#pin .tl-upd").length >= 1 && !!document.querySelector("#pin .cmp"), "有市府更新的路口顯示時間線與改善前後比較");
+  check(!document.getElementById("better").disabled, "市府更新後可以按「這裡變好了」");
+  check(document.querySelectorAll("#pin .causes .cause li").length > 0, "小檔案顯示具體原因與權責單位");
+  A.select(N.id, false);
+  check(document.getElementById("better").disabled && !document.querySelector("#pin .cmp"), "沒有更新的路口不能按「這裡變好了」");
+
   // profile
   var L = S.locs.filter(function (x) { return x.quadrant === "prevent"; })[0];
   A.select(L.id, false);
@@ -84,6 +104,7 @@
     var cats = [].slice.call(document.querySelectorAll("#chat .opts")).pop().querySelectorAll(".opt");
     cats[0].click();
     clickOpt("上學上班尖峰");
+    clickOpt("每天");
     clickOpt("差點發生事故");
     clickOpt("略過，直接送出");
     await sleep(300);
@@ -104,12 +125,36 @@
     document.getElementById("metoo").click();
     clickOpt("對，就是這個");
     clickOpt("下班尖峰");
+    clickOpt("常常");
     clickOpt("感覺不安");
     clickOpt("送出");
     await sleep(200);
     check(L.reports.concern === b2 + 1, "「我也遇過」快速流程 +1");
     clickOpt("關閉");
   } catch (e) { check(false, "我也遇過流程：" + e.message); }
+
+  // report flow: emergency notice, search inside the chat, plate-number guard — C2, C15, C18
+  try {
+    S.me = { user: "行人", color: "#1D5C8A" };
+    A.report.open({ mode: "concern" });
+    check(document.getElementById("chat").textContent.indexOf("1999") >= 0, "回報開頭提醒緊急狀況打 1999");
+    var rs = document.getElementById("rsearch"), target = S.locs[2];
+    rs.value = target.name.split("／")[1]; rs.dispatchEvent(new Event("input"));
+    clickOpt(target.name);
+    check(R2loc() === target.id, "回報時可以搜尋路名選路口");
+    [].slice.call(document.querySelectorAll("#chat .opts")).pop().querySelector(".opt").click();
+    clickOpt("夜間"); clickOpt("遇過一次"); clickOpt("感覺不安");
+    var b0 = target.reports.concern;
+    document.getElementById("rtext").value = "有台車 ABC-1234 一直停在這裡";
+    clickOpt("送出");
+    check(target.reports.concern === b0 && !!document.getElementById("rtext"), "留言有車牌時不送出");
+    document.getElementById("rtext").value = "晚上這裡很暗";
+    clickOpt("送出");
+    check(target.reports.concern === b0 + 1, "拿掉車牌後可以送出");
+    check(document.querySelector("#chat .done .mine").textContent.indexOf("遇過一次") >= 0, "完成畫面列出我回報的內容");
+    clickOpt("關閉");
+  } catch (e) { check(false, "回報流程（搜尋、提醒）：" + e.message); }
+  function R2loc() { return A.report.ctx && A.report.ctx.loc; }
 
   console.error = origErr;
   check(errors.length === 0, "沒有 JavaScript 錯誤" + (errors.length ? "：" + errors.slice(0, 3).join(" | ") : ""));

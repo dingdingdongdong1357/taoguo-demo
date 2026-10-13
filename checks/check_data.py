@@ -52,6 +52,24 @@ for x in L:
     check(x["route"] in ("rank", "district", "fast", "next", "none"), f"{x['id']} 送審路徑值合法")
     check((x["route"] == "none") == (x["route_reason"] == ""), f"{x['id']} 有送審路徑就有說明")
     check(bool(x.get("district")), f"{x['id']} 有行政區")
+    for c, n in rp["categories"].items():
+        if n > 0:
+            check(sum(rp["causes"].get(c, {}).values()) == n, f"{x['id']} {c} 的具體原因加總＝該類人數")
+            for cz in rp["causes"].get(c, {}):
+                check(cz in M["cause_owner"].get(c, {}), f"{x['id']} 具體原因「{cz}」有對應權責單位")
+    tl = x["timeline"]
+    check(tl[0]["type"] == "stage" and tl[0]["n"] == 1 and tl[0]["start"] == M["data_start"], f"{x['id']} 時間線從第 1 階段開始")
+    check(all(tl[i]["type"] != tl[i + 1]["type"] for i in range(len(tl) - 1)), f"{x['id']} 階段與市府更新交替出現")
+    check(tl[-1]["type"] == "stage" and tl[-1].get("current") and tl[-1]["end"] is None, f"{x['id']} 最後一段是目前階段")
+    has_upd = any(t["type"] == "update" for t in tl)
+    check(rp["praise"] == 0 or has_upd, f"{x['id']} 只有市府更新後才有「變好了」")
+    check(all(c["tone"] != "praise" for c in x["comments"]) or has_upd, f"{x['id']} 沒有更新就沒有稱讚留言")
+    for i, t in enumerate(tl):
+        if t["type"] == "update":
+            check(tl[i - 1]["end"] < t["date"][:7] <= tl[i + 1]["start"], f"{x['id']} 市府更新日期落在兩個階段之間")
+    stage_months = sum(t["months"] for t in tl if t["type"] == "stage")
+    total = (int(M["data_now"][:4]) - int(M["data_start"][:4])) * 12 + int(M["data_now"][5:]) - int(M["data_start"][5:]) + 1
+    check(stage_months == total, f"{x['id']} 各階段月數加起來＝整段期間")
     if x["route"] == "fast":
         check(x["care"] != "many", f"{x['id']} 快速通道只給回報不多的路口")
         if "死亡事故" in x["route_reason"]:
