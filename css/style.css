@@ -109,6 +109,55 @@ body[data-map-ready] .maploading{display:none}
 .rt-rank{background:var(--accent);border-color:var(--accent);color:#fff}
 .rt-district,.rt-fast{background:var(--marking);border-color:var(--ink);color:#1F2427}
 .rt-next{border-color:var(--accent);color:var(--accent)}
+/* city view (市府端) */
+.viewseg{margin-left:6px;box-shadow:none}
+.viewseg button{padding:6px 12px}
+body.gov .head{background:var(--ink);color:var(--bg)}
+body.gov .brand-sub{color:color-mix(in srgb,var(--bg) 70%,transparent)}
+body.gov .viewseg{border-color:var(--bg);background:transparent}
+body.gov .viewseg button{color:var(--bg)}
+body.gov .viewseg button[aria-pressed="true"]{background:var(--marking);color:#1F2427}
+body.gov #report{display:none}
+.case{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:2px;background:var(--surface);scroll-margin-top:12px}
+.case + .case{margin-top:8px}
+.case-district,.case-fast{border-left-color:var(--marking)}
+.case.flash{animation:flash 1.2s ease-out}
+@keyframes flash{0%{box-shadow:0 0 0 4px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
+.case header{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.case-name{border:0;background:transparent;padding:0;font-size:15.5px;font-weight:700;text-align:left;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
+.case-meta{font-size:12px;color:var(--muted)}
+.case-reason{margin:0;font-size:12.5px;color:var(--muted)}
+.case-stats{margin:0;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px}
+.case-stats .badge{margin-left:5px}
+.case-ai{padding:8px 10px;background:var(--soft);border-radius:2px}
+.case-ai p{margin:0;font-size:13px;line-height:1.6}
+.case-causes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:12.5px}
+.case-causes li{display:flex;flex-direction:column;gap:2px}
+.case-causes .owner.sm{margin-left:4px}
+.case-owners{margin:0;font-size:12.5px}
+.case-actions{display:flex;flex-wrap:wrap;gap:6px}
+.case-area:empty{display:none}
+.json{margin:0;max-height:220px;overflow:auto;padding:10px;background:var(--soft);border-radius:2px;font:11.5px/1.5 var(--f-mono);white-space:pre}
+.gform{display:flex;flex-direction:column;gap:6px}
+.gform label{font-size:12px;color:var(--muted)}
+.gform input,.gform select,.gform textarea{font:inherit;padding:7px 9px;border:1.5px solid var(--line);border-radius:2px;background:var(--surface);color:var(--ink)}
+.gform .btn{align-self:flex-start}
+.gerr{margin:0;font-size:12.5px;color:var(--storm)}
+.gnote{border-left:4px solid var(--accent);padding:8px 10px;background:var(--soft)}
+.thanks{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-left:4px solid var(--sunny);background:var(--surface)}
+.thanks p{margin:0}
+.thanks small{color:var(--muted);font-size:11.5px}
+@media (max-width:820px){ .viewseg button{padding:5px 8px;font-size:12px} }
+@media (max-width:480px){
+  .head{gap:8px;padding-inline:10px}
+  .brand-mark{width:24px;height:24px}
+  .brand-name{font-size:16px;letter-spacing:.02em}
+  .viewseg{margin-left:0}
+  .viewseg button{padding:4px 6px;font-size:11.5px}
+  #report{padding:7px 10px}
+  #report .long{display:none}
+}
+
 /* search */
 .search{display:flex;flex-direction:column;gap:6px}
 .search input,.rsearch input{width:100%;box-sizing:border-box;font:inherit;padding:9px 12px;border:1.5px solid var(--ink);border-radius:2px;background:var(--surface);color:var(--ink)}
@@ -142,6 +191,8 @@ body[data-map-ready] .maploading{display:none}
 .tl small{font-size:11.5px;color:var(--muted)}
 .tl p{margin:0;font-size:13px;line-height:1.6}
 .tl .tl-sum{color:var(--muted);font-size:12.5px}
+.tl .tl-sum.summary{margin-top:4px;padding:8px 10px;background:var(--soft);border-radius:2px;color:var(--ink);font-size:13px}
+.tl .tl-sum b{font-weight:700}
 .tl-upd p{font-weight:500}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .routes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}

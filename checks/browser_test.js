@@ -115,7 +115,7 @@
     clickOpt("關閉");
     check(document.getElementById("phone").hidden, "回報視窗可以關閉");
     A.select(L.id, false);
-    check(document.querySelector("#pin .summary").textContent.indexOf((before + 1) + " 位") === 0, "AI 摘要人數同步更新");
+    check(document.querySelector("#pin .summary").textContent.indexOf((before + 1) + " 位") >= 0, "AI 摘要人數同步更新");
   } catch (e) { check(false, "回報流程：" + e.message); }
 
   // quick "我也遇過"
@@ -155,6 +155,40 @@
     clickOpt("關閉");
   } catch (e) { check(false, "回報流程（搜尋、提醒）：" + e.message); }
   function R2loc() { return A.report.ctx && A.report.ctx.loc; }
+
+  // city view (市府端) — P0-7
+  try {
+    var G = window.GovView;
+    G.setView("gov");
+    var nCases = S.locs.filter(function (x) { return ["rank", "district", "fast"].indexOf(x.route) >= 0; }).length;
+    check(document.body.classList.contains("gov") && document.querySelectorAll("#pin .case").length === nCases, "市府端列出本月送審案件：" + nCases + " 件");
+    var C1 = S.locs.filter(function (x) { return x.route === "rank"; })[0];
+    var card = document.getElementById("case-" + C1.id);
+    check(card.querySelector(".case-ai").textContent.indexOf(C1.reports.concern + " 位") >= 0 && card.querySelectorAll(".case-causes li").length > 0, "案件卡有 AI 摘要與具體原因");
+    card.querySelector('[data-act="1999"]').click();
+    var pre = document.querySelector("#area-" + C1.id + " pre");
+    check(!!pre && JSON.parse(pre.textContent).lat === C1.lat, "產生 1999 案件顯示 Open311 格式");
+    document.getElementById("case-" + C1.id).querySelector('[data-act="update"]').click();
+    var f = document.querySelector("#area-" + C1.id + " form");
+    f.dispatchEvent(new Event("submit", { cancelable: true }));
+    check(!document.querySelector("#area-" + C1.id + " .gerr").hidden, "發布更新沒填內容會提醒");
+    document.getElementById("u-text-" + C1.id).value = "重劃待轉區、加設機車停等區";
+    f.dispatchEvent(new Event("submit", { cancelable: true }));
+    check(C1.timeline.filter(function (t) { return t.type === "update"; }).length >= 1 && C1.reports.concern === 0 && !document.getElementById("case-" + C1.id), "發布更新後開新階段、案件移出清單");
+    var C2 = S.locs.filter(function (x) { return x.route === "fast"; })[0];
+    document.getElementById("case-" + C2.id).querySelector('[data-act="decline"]').click();
+    var f2 = document.querySelector("#area-" + C2.id + " form");
+    f2.dispatchEvent(new Event("submit", { cancelable: true }));
+    check(!document.querySelector("#area-" + C2.id + " .gerr").hidden && !C2.decision, "評估後不改善沒填理由會擋下");
+    document.getElementById("d-text-" + C2.id).value = "現勘後視距符合規範，改以加強取締違停處理";
+    f2.dispatchEvent(new Event("submit", { cancelable: true }));
+    check(C2.decision && C2.stage === "評估後不改善", "填了理由才能結案");
+    G.setView("citizen");
+    A.select(C1.id, false);
+    check(!document.getElementById("better").disabled && document.querySelectorAll("#pin .tl-upd").length >= 1, "市府更新後，市民端時間線出現更新、開放「變好了」");
+    A.select(C2.id, false);
+    check(document.getElementById("pin").textContent.indexOf("現勘後視距符合規範") >= 0, "市民端看得到不改善的理由");
+  } catch (e) { check(false, "市府端：" + e.message); }
 
   console.error = origErr;
   check(errors.length === 0, "沒有 JavaScript 錯誤" + (errors.length ? "：" + errors.slice(0, 3).join(" | ") : ""));

@@ -16,11 +16,15 @@
     <div class="brand" id="brand">
       <div><div class="brand-name">差一點地圖</div><div class="brand-sub">中壢火車站周邊・Demo</div></div>
     </div>
+    <div class="seg viewseg" id="viewseg" role="group" aria-label="切換市民端與市府端">
+      <button type="button" data-view="citizen" aria-pressed="true">市民端</button>
+      <button type="button" data-view="gov" aria-pressed="false">市府端</button>
+    </div>
     <div class="head-tags">
       <span class="tag real"><i></i>事故：真實資料</span>
       <span class="tag mock"><i></i>回報：示意資料</span>
     </div>
-    <button class="btn primary" id="report" type="button">＋ 我要回報</button>
+    <button class="btn primary" id="report" type="button">＋ <span class="long">我要</span>回報</button>
   </header>
   <main class="main">
     <div class="mapwrap">
@@ -50,5 +54,6 @@
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="js/svg.js"></script>
 <script src="js/app.js"></script>
+<script src="js/gov.js"></script>
 </body>
 </html>

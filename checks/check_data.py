@@ -52,6 +52,7 @@ for x in L:
     check(x["route"] in ("rank", "district", "fast", "next", "none"), f"{x['id']} 送審路徑值合法")
     check((x["route"] == "none") == (x["route_reason"] == ""), f"{x['id']} 有送審路徑就有說明")
     check(bool(x.get("district")), f"{x['id']} 有行政區")
+    check(len(x["owners"]) >= 1 or rp["concern"] == 0, f"{x['id']} 至少有一個權責單位")
     for c, n in rp["categories"].items():
         if n > 0:
             check(sum(rp["causes"].get(c, {}).values()) == n, f"{x['id']} {c} 的具體原因加總＝該類人數")
@@ -67,6 +68,8 @@ for x in L:
     for i, t in enumerate(tl):
         if t["type"] == "update":
             check(tl[i - 1]["end"] < t["date"][:7] <= tl[i + 1]["start"], f"{x['id']} 市府更新日期落在兩個階段之間")
+    cur_start = tl[-1]["start"].replace("-", "/")
+    check(all(cur_start <= c["date"] <= M["data_now"].replace("-", "/") for c in x["comments"]), f"{x['id']} 留言日期都在目前階段內")
     stage_months = sum(t["months"] for t in tl if t["type"] == "stage")
     total = (int(M["data_now"][:4]) - int(M["data_start"][:4])) * 12 + int(M["data_now"][5:]) - int(M["data_start"][5:]) + 1
     check(stage_months == total, f"{x['id']} 各階段月數加起來＝整段期間")

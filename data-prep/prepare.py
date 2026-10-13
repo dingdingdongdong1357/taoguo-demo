@@ -357,6 +357,10 @@ def owner_of(cat, cause):
     return next(o for (cz, o, _) in CAUSES[cat] if cz == cause)
 
 
+def present_first(cat_counts):
+    return next((c for c, v in cat_counts.items() if v > 0), None)
+
+
 def stage_summary(n, cat_counts, causes):
     c1 = next(iter(cat_counts))
     cz, v = next(iter(causes[c1].items()))
@@ -421,11 +425,15 @@ for n, k in enumerate(order):
     hours = scale_to(hourly(r, night=r.random() < 0.3), negatives, r)
     severity = dict(zip(["感覺不安", "差點發生事故", "曾經擦撞"], scale_to([0.5, 0.38 + r.random() * 0.1, 0.08], negatives, r)))
 
-    owners = []
+    owners = []  # units behind the top two causes of the top two problems
     for c in [c for c, v in cat_counts.items() if v > 0][:2]:
-        o = owner_of(c, next(iter(causes[c])))
-        if o not in owners:
-            owners.append(o)
+        for cz, v in list(causes[c].items())[:2]:
+            o = owner_of(c, cz)
+            if v >= 2 and o not in owners:
+                owners.append(o)
+    if not owners and present_first(cat_counts):  # few reports: still name the unit behind the top cause
+        c0 = present_first(cat_counts)
+        owners.append(owner_of(c0, next(iter(causes[c0]))))
     if len(owners) >= 3:
         owners.append("區公所（會勘）")
 
@@ -439,6 +447,14 @@ for n, k in enumerate(order):
         if positives >= 10:
             comments.append({"tone": "praise", "category": fixed_cat, "text": "謝謝市府，這個路口終於改了。", "user": r.choice(USERS[:3])})
 
+    # comments belong to the current stage: date them inside it
+    cur_start = tuple(int(x) for x in timeline[-1]["start"].split("-"))
+    span = months_between(cur_start, DATA_NOW)
+    for c in comments:
+        k2 = r.randrange(span)
+        y, m = cur_start[0] + (cur_start[1] - 1 + k2) // 12, (cur_start[1] - 1 + k2) % 12 + 1
+        c["date"] = f"{y}/{m:02d}"
+    comments.sort(key=lambda c: c["date"], reverse=True)
     peak = max(range(4), key=lambda i: [sum(hours[6:10]), sum(hours[10:16]), sum(hours[16:20]), sum(hours[20:24]) + sum(hours[0:6])][i])
     top_user = max(users, key=users.get)
     present = [c for c, v in cat_counts.items() if v > 0]

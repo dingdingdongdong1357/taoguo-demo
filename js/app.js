@@ -27,7 +27,7 @@
       (L.improved ? "✓" : L.reports.concern) + "</span>";
   }
 
-  var S = { roads: null, locs: [], meta: null, byId: {}, board: null, layer: "reports", sel: null, me: null, map: null, markers: {}, labels: [] };
+  var S = { roads: null, locs: [], meta: null, byId: {}, board: null, view: "citizen", layer: "reports", sel: null, me: null, map: null, markers: {}, labels: [] };
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function sum(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
@@ -182,6 +182,7 @@
       var wrap = document.createElement("div");
       var el = document.createElement("button");
       el.type = "button";
+      el.dataset.id = L.id;
       // Handle the tap ourselves: the map treats a press as the start of a drag, which can
       // swallow the click on touch screens and inside embedded frames.
       var down = null, lastTap = 0;
@@ -359,6 +360,7 @@
   }
   function onMarker(id) {
     if (R.waitingForPick) { R.pickLocation(id); return; }
+    if (S.view === "gov" && window.GovView) { window.GovView.focus(id); return; }
     select(id, false);
   }
 
@@ -398,7 +400,7 @@
       var period = t.start.replace("-", "/") + "–" + (t.end ? t.end.replace("-", "/") : "現在") + "（" + t.months + " 個月）";
       return '<li class="tl-stage' + (cur ? " cur" : "") + '"><span class="tl-dot"></span><div><b>第 ' + t.n + " 階段" + (cur ? "（目前）" : "") + '</b><small>' + period + "</small>" +
         "<p>" + n + " 人回報要注意" + (pr ? "、" + pr + " 人說變好了" : "") + "，每月約 " + perMonth(n, t.months) + " 人</p>" +
-        '<p class="tl-sum">' + esc(cur ? summaryOf(L) : t.summary) + "</p></div></li>";
+        '<p class="tl-sum' + (cur ? " summary" : "") + '"><b>AI 摘要：</b>' + esc(cur ? summaryOf(L) : t.summary) + "</p></div></li>";
     }).join("") + "</ol>";
     if (!hasUpdate(L)) out += '<p class="note">市府還沒有更新這個路口。市府完成改善並發布更新後，會開始新的階段，也才開放「這裡變好了」。</p>';
     return out;
@@ -425,7 +427,7 @@
       '<div class="actions"><button class="btn primary" id="metoo">我也遇過</button><button class="btn" id="better"' + (hasUpdate(L) ? "" : ' disabled title="市府更新後才開放"') + '>這裡變好了</button></div>' +
       (hasUpdate(L) ? "" : '<p class="note">市府更新後才能說「這裡變好了」。</p>') + "</div>" +
 
-      '<div class="sec"><div class="sec-h"><h3>AI 摘要</h3><span class="badge mock">示意</span></div><p class="summary">' + esc(summaryOf(L)) + "</p></div>" +
+      '<div class="sec"><div class="sec-h"><h3>時間線</h3><span class="badge mock">示意</span></div>' + timelineHTML(L) + "</div>" +
 
       '<div class="sec"><div class="sec-h"><h3>什麼時候、遇到什麼</h3><span class="badge mock">示意</span></div>' +
       '<div class="twocol"><div>' + K.ring24(r.hours, 128) + '</div><div class="bars">' +
@@ -449,7 +451,7 @@
 
       '<div class="sec"><div class="sec-h"><h3>兩邊對照</h3></div><p class="accnote"><b style="color:var(' + q.v + ')">' + q.name + "</b>：" + q.desc + "</p></div>" +
 
-      '<div class="sec"><div class="sec-h"><h3>時間線</h3><span class="badge mock">示意</span></div>' + timelineHTML(L) + "</div>" +
+      (L.decision ? '<div class="sec"><div class="sec-h"><h3>市府回覆</h3><span class="badge mock">示意</span></div><p class="accnote"><b>' + esc(L.decision.title) + "（" + esc(L.decision.date) + "）</b>：" + esc(L.decision.text) + "</p></div>" : "") +
       '<div class="sec"><div class="sec-h"><h3>處理進度</h3><span class="badge mock">示意</span></div><ol class="steps">' +
       STAGES.map(function (s, i) { return '<li class="' + (i < stageIdx ? "is-done" : i === stageIdx ? "is-now" : "") + '"><i></i>' + s + "</li>"; }).join("") + "</ol>" +
       "</div>" +
@@ -473,7 +475,7 @@
     var showVoices = function (tone) {
       var list = tone === "praise" ? praiseC : concernC;
       $("voices").innerHTML = list.length ? list.map(function (c) {
-        return '<li class="voice">' + K.avatar(c.user, K.userColor(c.user), 30) + "<div><p>" + esc(c.text) + "</p><small>" + c.user + (c.category ? "・" + c.category : "") + "</small></div></li>";
+        return '<li class="voice">' + K.avatar(c.user, K.userColor(c.user), 30) + "<div><p>" + esc(c.text) + "</p><small>" + c.user + (c.category ? "・" + c.category : "") + (c.date ? "・" + c.date : c.mine ? "・剛剛" : "") + "</small></div></li>";
       }).join("") : '<li class="note">還沒有人這樣說。</li>';
       $("pin").querySelectorAll(".tabs button").forEach(function (b) { b.setAttribute("aria-selected", b.dataset.t === tone); });
     };
@@ -676,6 +678,7 @@
   function applyHash() {
     var h = (location.hash || "").slice(1);
     if (h === "accidents" || h === "compare") setLayer(h);
+    if (h === "gov" && window.GovView) window.GovView.setView("gov");
     var m = /^profile-(L\d+)$/.exec(h);
     if (m && S.byId[m[1]]) select(m[1], true);
     if (h === "report") {
@@ -688,7 +691,7 @@
         if (b) b.click();
       };
       var top = Object.keys(L.reports.categories).sort(function (a, b) { return L.reports.categories[b] - L.reports.categories[a]; })[0];
-      pick(top); pick("下班尖峰"); pick("差點發生事故");
+      pick(top); pick("下班尖峰"); pick("每天"); pick("差點發生事故");
       var ta = $("rtext");
       if (ta) ta.value = "右轉時轉角被擋住，看不到斑馬線上的人。";
       pick("送出");
@@ -720,6 +723,8 @@
       document.body.dataset.mapReady = "error";
     });
   }
-  window.DemoApp = { state: S, select: select, setLayer: setLayer, report: R, mapStyle: mapStyle };
+  window.DemoApp = { state: S, select: select, setLayer: setLayer, report: R, mapStyle: mapStyle,
+    util: { esc: esc, summaryOf: summaryOf, careBadge: careBadge, ownerOf: ownerOf, hasUpdate: hasUpdate, perMonth: perMonth,
+            renderMarkers: renderMarkers, renderOverview: renderOverview, refresh: refresh, pulse: pulse, careText: careText } };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();

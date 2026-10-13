@@ -15,6 +15,7 @@ const shots = [
   { name: "demo_profile", hash: "#profile-L21", w: 1600, h: 1000 },
   { name: "demo_report", hash: "#report", w: 1600, h: 1000 },
   { name: "demo_compare", hash: "#compare", w: 1600, h: 1000 },
+  { name: "demo_gov", hash: "#gov", w: 1600, h: 1000 },
   { name: "demo_accidents", hash: "#accidents", w: 1600, h: 1000 },
   { name: "demo_mobile_profile", hash: "#profile-L19", w: 390, h: 844, mobile: true },
   { name: "demo_mobile_report", hash: "#report", w: 390, h: 844, mobile: true },
