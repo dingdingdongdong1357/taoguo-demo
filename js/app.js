@@ -76,7 +76,37 @@
     var a = perMonth(prev.concern, prev.months), b = perMonth(L.reports.concern, cur.months);
     return { before: a, after: b, better: b <= a * 0.5 };
   }
+  /* "Recently rising" (mock): same rule as data-prep/prepare.py rising_of. A place can turn dangerous
+     (new shop or school, road works, a new box blocking the view), so a jump matters even when the total is small. */
+  function risingOf(L) {
+    var R0 = S.meta.rising, c = L.trend.counts, w = R0.window;
+    if (c.length < w + R0.before_min) return false;
+    var recent = sum(c.slice(-w)), before = c.slice(0, -w);
+    return recent >= R0.min && recent / w >= R0.ratio * (sum(before) / before.length);
+  }
+  function trendNumbers(L) {
+    var c = L.trend.counts, w = S.meta.rising.window, before = c.slice(0, -w);
+    return { recent: perMonth(sum(c.slice(-w)), w), before: perMonth(sum(before), before.length) };
+  }
+  function ymAdd(ym, k) {
+    var y = +ym.slice(0, 4), m = +ym.slice(5) - 1 + k;
+    return (y + Math.floor(m / 12)) + "/" + String(m % 12 + 1).padStart(2, "0");
+  }
+  var RISE_TAG = '<i class="rsb" aria-hidden="true">↑</i>';
+  /* Monthly reports in the current stage; the last months are highlighted. */
+  function trendHTML(L) {
+    var c = L.trend.counts, w = S.meta.rising.window, max = Math.max.apply(null, c.concat([1])), n = trendNumbers(L);
+    var bars = c.map(function (v, i) {
+      return '<span class="tb' + (i >= c.length - w ? " recent" : "") + '" style="height:' + Math.max(2, Math.round(v / max * 44)) + 'px" title="' + ymAdd(L.trend.start, i) + "：" + v + ' 人"></span>';
+    }).join("");
+    return '<div class="trend" role="img" aria-label="每月回報人數，最近 ' + w + ' 個月每月約 ' + n.recent + ' 人，之前每月約 ' + n.before + ' 人">' + bars + "</div>" +
+      '<div class="trend-ax"><span>' + ymAdd(L.trend.start, 0) + "</span><span>最近 " + w + " 個月</span></div>" +
+      (L.trend.rising
+        ? '<p class="cmp rise">' + RISE_TAG + "最近 " + w + " 個月每月約 <b>" + n.recent + "</b> 人回報，之前每月約 <b>" + n.before + "</b> 人：<b>最近變多</b>。回報總數還不多，排行不一定排得到，但這裡可能正在變危險（例如附近新開店家、施工改道、新設施擋住視線）。市府端會列在「最近變多」提醒承辦主動看。</p>"
+        : '<p class="note">最近 ' + w + " 個月每月約 " + n.recent + " 人，之前每月約 " + n.before + " 人。最近 " + w + " 個月的平均達到之前的 " + S.meta.rising.ratio + " 倍、且至少 " + S.meta.rising.min + " 人，就會標示「最近變多」。</p>");
+  }
   function refresh(L) {
+    L.trend.rising = risingOf(L);
     L.care = careOf(L);
     L.improved = L.reports.praise > L.reports.concern;
     L.quadrant = quadOf(L);
@@ -233,8 +263,9 @@
         size = Math.round((30 + Math.min(Math.sqrt(v) * 3.2, 30)) * zf);
         cls = "mk care-" + L.care + (L.improved ? " improved" : "");
         html = '<span class="n">' + (L.improved ? "✓" : v) + "</span>" +
-          (ROUTE[L.route] && ROUTE[L.route].tag ? '<i class="rtb">' + ROUTE[L.route].tag + "</i>" : "");
-        label = L.name + "，回報 " + v + " 人（示意資料），" + careText(L);
+          (ROUTE[L.route] && ROUTE[L.route].tag ? '<i class="rtb">' + ROUTE[L.route].tag + "</i>" : "") +
+          (L.trend.rising ? RISE_TAG : "");
+        label = L.name + "，回報 " + v + " 人（示意資料），" + careText(L) + (L.trend.rising ? "，最近變多" : "");
       }
       if (S.layer !== "compare") { el.style.background = ""; el.style.borderColor = ""; }
       el.className = cls + sel;
@@ -267,7 +298,7 @@
     } else {
       var sw = function (c, t, txt) { return '<span class="li"><span class="cb care-' + c + '" style="width:18px;height:18px;font-size:10px">' + t + "</span>" + txt + "</span>"; };
       h = '<div class="row">' + sw("many", "", "很多人關心") + sw("some", "", "有人關心") + sw("few", "", "回報還少") + sw("few improved", "✓", "變好了") + "</div>" +
-        '<div class="row"><span class="li"><i class="rtb static">快</i>快速通道</span><span class="li"><span class="badge mock">示意資料</span></span>數字＝回報人數</div>';
+        '<div class="row"><span class="li"><i class="rtb static">快</i>快速通道</span><span class="li"><i class="rsb static">↑</i>最近變多</span><span class="li"><span class="badge mock">示意資料</span></span>數字＝回報人數</div>';
     }
     $("legend").innerHTML = h;
   }
@@ -308,6 +339,7 @@
         var q = QUAD[k];
         return '<button class="qcard" style="--qc:var(' + q.v + ')" data-quad="' + k + '"><b>' + q.name + "</b><span>" + q.desc + "</span><em>" + counts[k] + " 個路口</em></button>";
       }).join("") + "</div></div>" +
+      risingHTML() +
       boardHTML() +
       '<div class="sec"><div class="sec-h"><h3>從這幾個路口看起</h3></div><div class="picks">' +
       picks.map(function (L) {
@@ -340,6 +372,19 @@
       .sort(function (a, b) { return b.reports.concern - a.reports.concern; }).slice(0, 6);
   }
 
+  /* Places whose reports jumped recently: the ranking counts totals, so a place that is only now turning dangerous would wait. */
+  function risingHTML() {
+    var rows = S.locs.filter(function (L) { return L.trend.rising && !L.improved; })
+      .sort(function (a, b) { return trendNumbers(b).recent - trendNumbers(a).recent; });
+    if (!rows.length) return "";
+    return '<div class="sec"><div class="sec-h"><h3>' + RISE_TAG + "最近變多</h3><span class=\"badge mock\">示意</span></div>" +
+      '<p class="note">回報總數還不多，但最近 ' + S.meta.rising.window + " 個月突然變多：路口可能正在變危險。排行看的是累積人數，這些路口不一定排得到，所以另外列出來。</p>" +
+      '<ol class="board">' + rows.map(function (L) {
+        var n = trendNumbers(L);
+        return '<li><button class="brow" data-id="' + L.id + '">' + careBadge(L, 24) + '<span class="nm">' + esc(L.name) + '</span><span class="mono v">每月 ' + n.before + " → " + n.recent + " 人</span></button></li>";
+      }).join("") + "</ol></div>";
+  }
+
   /* Each district keeps its own ranking, so quieter districts are not drowned out. */
   var ROUTE_LABEL = { district: "本月送市府", fast: "快速通道", next: "下個月優先", none: "收集中" };
   function boardHTML() {
@@ -353,7 +398,7 @@
         return '<button role="tab" data-d="' + x + '" aria-selected="' + (x === d) + '">' + x + "</button>";
       }).join("") + "</div>" +
       '<ol class="board">' + rows.map(function (L, i) {
-        return '<li><button class="brow" data-id="' + L.id + '"><b class="mono">' + (i + 1) + '</b><span class="nm">' + esc(L.name) + '</span><span class="mono v">' + L.reports.concern + ' 人</span><span class="rt rt-' + L.route + '">' + (ROUTE[L.route] && ROUTE[L.route].tag ? '<i class="rtb">' + ROUTE[L.route].tag + "</i>" : "") + esc(progressLabel(L)) + "</span></button></li>";
+        return '<li><button class="brow" data-id="' + L.id + '"><b class="mono">' + (i + 1) + '</b><span class="nm">' + esc(L.name) + (L.trend.rising ? RISE_TAG : "") + '</span><span class="mono v">' + L.reports.concern + ' 人</span><span class="rt rt-' + L.route + '">' + (ROUTE[L.route] && ROUTE[L.route].tag ? '<i class="rtb">' + ROUTE[L.route].tag + "</i>" : "") + esc(progressLabel(L)) + "</span></button></li>";
       }).join("") + "</ol></div>";
   }
 
@@ -453,7 +498,7 @@
     var html =
       '<button class="back" id="back">← 回到全部路口</button>' +
       '<div class="titlerow"><div class="wx">' + careBadge(L, 52) + '</div><div><p class="eyebrow">路口小檔案</p><h1 class="ptitle">' + esc(L.name) + '</h1></div></div>' +
-      '<div class="tagsrow"><span class="qtag" style="--qc:var(' + q.v + ');background:var(' + q.v + ')">' + q.name + '</span><span class="stagetag">處理進度：' + L.stage + "</span></div>" +
+      '<div class="tagsrow"><span class="qtag" style="--qc:var(' + q.v + ');background:var(' + q.v + ')">' + q.name + '</span><span class="stagetag">處理進度：' + L.stage + "</span>" + (L.trend.rising ? '<span class="stagetag risetag">' + RISE_TAG + "最近變多</span>" : "") + "</div>" +
       '<p class="wxline">' + careText(L) + "・" + esc(L.district) + "</p>" +
 
       '<div class="sec"><div class="sec-h"><h3>有多少人也遇過</h3><span class="badge mock">示意</span></div>' +
@@ -462,6 +507,8 @@
       '<div class="ulegend">' + USERS.map(function (u) { return '<span><i style="background:' + K.userColor(u) + '"></i>' + u + " " + (r.users[u] || 0) + "</span>"; }).join("") + "</div>" +
       '<div class="actions"><button class="btn primary" id="metoo">我也遇過</button><button class="btn" id="better"' + (canPraise(L) ? "" : ' disabled title="市府更新後才開放"') + '>這裡變好了</button></div>' +
       (canPraise(L) ? "" : '<p class="note">市府登錄完工後才能說「這裡變好了」。</p>') + "</div>" +
+
+      '<div class="sec"><div class="sec-h"><h3>最近有沒有變多</h3><span class="badge mock">示意</span></div>' + trendHTML(L) + "</div>" +
 
       '<div class="sec"><div class="sec-h"><h3>時間線</h3><span class="badge mock">示意</span></div>' + timelineHTML(L) + "</div>" +
       '<div class="sec" id="repairs"><div class="sec-h"><h3>維修紀錄（' + (L.repairs || []).length + '）</h3><span class="badge mock">示意</span></div>' + repairsHTML(L) + "</div>" +
@@ -679,6 +726,7 @@
         L.comments.unshift({ tone: "praise", text: R.ctx.praise === "其他" ? "這裡變好了。" : R.ctx.praise + "了。", user: u, mine: true });
       } else {
         r.concern += 1;
+        L.trend.counts[L.trend.counts.length - 1] += 1;  // this month
         r.categories[R.ctx.cat] = (r.categories[R.ctx.cat] || 0) + 1;
         var hr = (TIMES.filter(function (t) { return t[0] === R.ctx.time; })[0] || TIMES[1])[1];
         r.hours[hr] += 1;
@@ -766,6 +814,7 @@
   }
   window.DemoApp = { state: S, select: select, setLayer: setLayer, report: R, mapStyle: mapStyle,
     util: { canPraise: canPraise, progressLabel: progressLabel, esc: esc, summaryOf: summaryOf, careBadge: careBadge, ownerOf: ownerOf, hasUpdate: hasUpdate, perMonth: perMonth,
-            renderMarkers: renderMarkers, renderOverview: renderOverview, refresh: refresh, pulse: pulse, careText: careText } };
+            renderMarkers: renderMarkers, renderOverview: renderOverview, refresh: refresh, pulse: pulse, careText: careText,
+            risingOf: risingOf, trendNumbers: trendNumbers, RISE_TAG: RISE_TAG } };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();

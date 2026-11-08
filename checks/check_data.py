@@ -113,6 +113,21 @@ if RAW.exists():
     check(int((rec["Accident_type"] == "A1").sum()) == M["a1_recent"], "範圍內近三年 A1 數重算一致")
 check(sum(x["real"]["acc_recent"] for x in L) <= M["accidents_recent"], "各地點事故加總不超過範圍總數")
 
+# "recently rising" (mock): monthly counts add up to the current stage, and the flag follows the rule in meta
+R = M["rising"]
+def _rising(c):
+    w = R["window"]
+    if len(c) < w + R["before_min"]:
+        return False
+    return sum(c[-w:]) >= R["min"] and sum(c[-w:]) / w >= R["ratio"] * sum(c[:-w]) / len(c[:-w])
+for x in L:
+    t, cur = x["trend"], x["timeline"][-1]
+    check(len(t["counts"]) == cur["months"] and t["start"] == cur["start"], f"{x['id']} 每月回報的月份＝目前階段")
+    check(sum(t["counts"]) == x["reports"]["concern"], f"{x['id']} 每月回報加總＝目前階段回報數")
+    check(t["rising"] == _rising(t["counts"]), f"{x['id']} 最近變多的判定符合規則")
+check(1 <= sum(x["trend"]["rising"] for x in L) == R["count"], f"最近變多的路口數：{R['count']}")
+check(all(x["reports"]["concern"] < M["report_high_threshold"] for x in L if x["trend"]["rising"]), "最近變多的示意路口回報總數都還不多（排行排不到）")
+
 print(f"CP1 資料檢查：通過 {len(passes)} 項，失敗 {len(fails)} 項")
 for m in fails:
     print("  ✗", m)

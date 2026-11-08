@@ -559,6 +559,37 @@ for L in locations:
         L["repairs"].append({"kind": "minor", "date": f"2026-{rr.randint(3, 8):02d}-{rr.randint(2, 27):02d}", "unit": unit,
                              "items": items, "solves": [{"cat": c, "cause": cz, "n": v}]})
 
+# "Recently rising" (mock): monthly reports in the current stage. A place can turn dangerous (new shop or school,
+# road works, a new box blocking the view), so a sudden jump matters even when the total is still small.
+# Rule (same in js/app.js risingOf): the last RISING_WINDOW months average at least RISING_RATIO x the months before,
+# and at least RISING_MIN reports in those months; needs RISING_BEFORE_MIN earlier months in the same stage.
+# A separate RNG per location, so adding this does not change any other mock number.
+RISING_WINDOW, RISING_RATIO, RISING_MIN, RISING_BEFORE_MIN = 3, 2, 6, 6
+RISING_IDS = {"後寮路／中運路": 9, "環中東路二段／環運路": 7}  # mock: reports in the last 3 months; few in total, so the ranking misses them
+
+
+def rising_of(counts):
+    w = RISING_WINDOW
+    if len(counts) < w + RISING_BEFORE_MIN:
+        return False
+    recent, before = counts[-w:], counts[:-w]
+    return sum(recent) >= RISING_MIN and sum(recent) / w >= RISING_RATIO * (sum(before) / len(before))
+
+
+for L in locations:
+    rr = random.Random(SEED * 7 + int(L["id"][1:]))
+    cur = L["timeline"][-1]
+    n_months, total = cur["months"], L["reports"]["concern"]
+    if L["name"] in RISING_IDS:
+        late = min(RISING_IDS[L["name"]], total)
+        early = scale_to([0.6 + rr.random() for _ in range(n_months - RISING_WINDOW)], total - late, rr)
+        counts = early + scale_to([0.8, 1.0, 1.3], late, rr)
+    else:
+        counts = scale_to([0.7 + 0.6 * rr.random() for _ in range(n_months)], total, rr)
+    assert sum(counts) == total
+    L["trend"] = {"start": cur["start"], "counts": counts, "rising": rising_of(counts)}
+    assert L["trend"]["rising"] == (L["name"] in RISING_IDS), L["name"]
+
 (OUT / "locations.json").write_text(json.dumps(locations, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 meta = {
     "area": "中壢火車站周邊", "bbox": [WEST, SOUTH, EAST, NORTH], "years": YEARS, "recent": list(RECENT),
@@ -571,6 +602,8 @@ meta = {
     "cause_owner": {c: {cz: o for (cz, o, _) in v} for c, v in CAUSES.items()},
     "updated": sum(any(t["type"] == "update" for t in L["timeline"]) for L in locations),
     "repairs": sum(len(L["repairs"]) for L in locations), "routes": dict(Counter(L["route"] for L in locations)),
+    "rising": {"window": RISING_WINDOW, "ratio": RISING_RATIO, "min": RISING_MIN, "before_min": RISING_BEFORE_MIN,
+               "count": sum(L["trend"]["rising"] for L in locations)},
     "sources": {
         "accidents": "桃園市政府開放資料「桃園市A1及A2類道路交通事故」https://data.gov.tw/dataset/46364（真實資料）",
         "roads": "© OpenStreetMap contributors（ODbL）",

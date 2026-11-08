@@ -394,3 +394,15 @@ body.gov #report{display:none}
 .maplibregl-canvas-container.maplibregl-interactive:active{cursor:grabbing}
 .maplibregl-marker{position:absolute;top:0;left:0;will-change:transform}
 .maplibregl-ctrl-attrib,.maplibregl-ctrl-logo{display:none}
+/* 最近變多（示意）：最近 3 個月回報突然變多 */
+.rsb{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--storm);color:#fff;font:700 12px/1 var(--f-body);font-style:normal;border:1.5px solid var(--surface)}
+.mk .rsb{position:absolute;right:-7px;top:-7px}
+.rsb.static{margin-right:5px;vertical-align:-3px}
+.brow .rsb,.sec-h .rsb,.risetag .rsb,.cmp.rise .rsb{width:15px;height:15px;font-size:10px;margin:0 4px;vertical-align:-2px}
+.risetag{color:var(--storm);border-color:var(--storm)}
+.trend{display:flex;align-items:flex-end;gap:2px;height:46px;padding:2px 0;border-bottom:1px solid var(--line)}
+.trend .tb{flex:1;min-width:3px;background:color-mix(in srgb,var(--accent) 45%,var(--surface));border-radius:1px 1px 0 0}
+.trend .tb.recent{background:var(--storm)}
+.trend-ax{display:flex;justify-content:space-between;font:11px var(--f-mono);color:var(--muted);margin:3px 0 8px}
+.cmp.rise{background:color-mix(in srgb,var(--storm) 10%,var(--surface));border-left:4px solid var(--storm)}
+.case-rise{border-left-color:var(--storm)}

@@ -103,6 +103,13 @@
   "none": 15,
   "district": 6
  },
+ "rising": {
+  "window": 3,
+  "ratio": 2,
+  "min": 6,
+  "before_min": 6,
+  "count": 2
+ },
  "sources": {
   "accidents": "桃園市政府開放資料「桃園市A1及A2類道路交通事故」https://data.gov.tw/dataset/46364（真實資料）",
   "roads": "© OpenStreetMap contributors（ODbL）",

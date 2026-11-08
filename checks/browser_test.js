@@ -174,7 +174,7 @@
     var G = window.GovView;
     G.setView("gov");
     var nCases = S.locs.filter(function (x) { return ["district", "fast"].indexOf(x.route) >= 0; }).length;
-    check(document.body.classList.contains("gov") && document.querySelectorAll("#pin .case").length === nCases, "市府端列出本月送審案件：" + nCases + " 件");
+    check(document.body.classList.contains("gov") && document.querySelectorAll("#pin .case:not(.case-rise)").length === nCases, "市府端列出本月送審案件：" + nCases + " 件");
     var C1 = S.locs.filter(function (x) { return x.route === "district"; })[0];
     var card = document.getElementById("case-" + C1.id);
     check(card.querySelector(".case-ai").textContent.indexOf(C1.reports.concern + " 位") >= 0 && card.querySelectorAll(".case-causes li").length > 0, "案件卡有 AI 摘要與具體原因");
@@ -265,6 +265,24 @@
     A.select(C2.id, false);
     check(document.getElementById("pin").textContent.indexOf("現勘後視距符合規範") >= 0, "市民端看得到不改善的理由");
   } catch (e) { check(false, "市府端：" + e.message); }
+
+  // 最近變多（示意）：地圖標記、概覽清單、小檔案、市府端提醒
+  try {
+    var A2 = window.DemoApp, S2 = A2.state, Rs = S2.locs.filter(function (x) { return x.trend.rising; });
+    check(Rs.length === S2.meta.rising.count && Rs.every(function (x) { return A2.util.risingOf(x); }), "最近變多的判定和資料一致");
+    if (window.GovView) window.GovView.setView("citizen");
+    A2.setLayer("reports"); A2.util.renderOverview();
+    check(Rs.every(function (x) { return S2.markers[x.id].el.querySelector(".rsb"); }) &&
+      S2.locs.filter(function (x) { return !x.trend.rising; }).every(function (x) { return !S2.markers[x.id].el.querySelector(".rsb"); }), "只有最近變多的路口有 ↑ 標記");
+    check(document.querySelector("#legend .rsb") && document.getElementById("pin").textContent.indexOf("最近變多") >= 0, "圖例與概覽有「最近變多」");
+    A2.select(Rs[0].id, false);
+    check(document.querySelectorAll("#pin .trend .tb").length === Rs[0].trend.counts.length && document.querySelector("#pin .cmp.rise"), "小檔案顯示每月回報與最近變多說明");
+    if (window.GovView) {
+      window.GovView.setView("gov");
+      check(Rs.every(function (x) { return x.route === "district" || x.route === "fast" || document.getElementById("case-" + x.id); }), "市府端列出沒進名單的最近變多路口");
+      window.GovView.setView("citizen");
+    }
+  } catch (e) { check(false, "最近變多：" + e.message); }
 
   console.error = origErr;
   check(errors.length === 0, "沒有 JavaScript 錯誤" + (errors.length ? "：" + errors.slice(0, 3).join(" | ") : ""));

@@ -110,6 +110,20 @@
       '<div class="case-actions"><button class="btn small" data-act="undefer" data-id="' + L.id + '">改回本月處理</button></div></article>';
   }
 
+  /* Recently rising, not on this month's list: not a case (the quota stays), a reminder to look before it piles up. */
+  function risingSec(cases) {
+    var list = S.locs.filter(function (L) { return L.trend.rising && !L.improved && cases.indexOf(L) < 0; });
+    if (!list.length) return "";
+    return '<div class="sec"><div class="sec-h"><h3>' + U.RISE_TAG + "最近變多（" + list.length + '）</h3><span class="src">不佔名額，提醒主動看</span></div>' +
+      '<p class="note">回報總數還不多、沒有進入本月名單，但最近 ' + S.meta.rising.window + " 個月突然變多。路口可能正在變危險（新開店家、施工改道、新設施擋視線），建議趁事故累積之前先現勘。</p>" +
+      list.map(function (L) {
+        var n = U.trendNumbers(L);
+        return '<article class="case case-rise" id="case-' + L.id + '"><header><button class="case-name" data-go="' + L.id + '">' + U.esc(L.name) + '</button><span class="case-meta">' + U.esc(L.district) + "・共 " + L.reports.concern + " 人回報</span></header>" +
+          '<p class="case-reason">每月回報 ' + n.before + " → " + n.recent + " 人（最近 " + S.meta.rising.window + " 個月）・近三年事故 " + L.real.acc_recent + ' 件<span class="badge real">真實</span></p>' +
+          '<div class="case-ai"><p class="b-label">AI 摘要</p><p>' + U.esc(U.summaryOf(L)) + "</p></div></article>";
+      }).join("") + "</div>";
+  }
+
   function render() {
     var t = today();
     var cases = S.locs.filter(function (L) { return ["district", "fast"].indexOf(L.route) >= 0; });
@@ -137,6 +151,7 @@
         return '<div class="sec"><div class="sec-h"><h3>' + g.name + "（" + list.length + "）</h3><span class=\"src\">" + g.note() + "</span></div>" +
           (list.length ? list.map(caseCard).join("") : '<p class="note">本月沒有案件。</p>') + "</div>";
       }).join("") +
+      risingSec(cases) +
       (deferred.length ? '<div class="sec"><div class="sec-h"><h3>延到下個月（' + deferred.length + '）</h3><span class="src">承辦調整，下個月優先</span></div>' + deferred.map(deferredCard).join("") + "</div>" : "") +
       (fixes.length ? '<div class="sec"><div class="sec-h"><h3>權責對照表修正建議（' + fixes.length + '）</h3></div><p class="note">局處退回改派的理由，彙整給交通局更新權責對照表，下次 AI 就不會再建議錯。</p>' + fixes.map(function (x) {
         return '<p class="accnote">「' + U.esc(x.cause) + "」：" + U.esc(x.from) + " → " + U.esc(x.to || "待確認") + "（" + U.esc(x.reason) + "）</p>";
