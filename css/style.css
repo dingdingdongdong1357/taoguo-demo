@@ -406,3 +406,17 @@ body.gov #report{display:none}
 .trend-ax{display:flex;justify-content:space-between;font:11px var(--f-mono);color:var(--muted);margin:3px 0 8px}
 .cmp.rise{background:color-mix(in srgb,var(--storm) 10%,var(--surface));border-left:4px solid var(--storm)}
 .case-rise{border-left-color:var(--storm)}
+
+/* 我回報過 */
+.mineb{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--q-prevent,#E8735F);color:#fff;font:700 10px/1 var(--f-body);font-style:normal;border:1.5px solid var(--surface)}
+.mk .mineb{position:absolute;left:-7px;bottom:-7px}
+.mineb.static{margin-right:5px;vertical-align:-3px}
+.minenote{margin:8px 0 4px;padding:8px 10px;border-radius:8px;background:var(--surface-2,rgba(232,115,95,.1));font-size:14px}
+.sec.mine .board small{display:block;margin-top:2px}
+/* 市府端：主動查看 */
+.case.quick{border:2px solid var(--storm)}
+.qtags{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0}
+.qtag{display:inline-flex;align-items:center;gap:2px;padding:2px 8px;border-radius:999px;background:var(--surface-2,#eee);font-size:13px}
+.qtag.rise{background:rgba(214,69,65,.12)}
+.qtag.ok{background:rgba(63,122,94,.15)}
+.btn.ghost{background:transparent;border:1px solid currentColor}

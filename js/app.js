@@ -10,10 +10,10 @@
   var PRAISE_OPTS = ["標線變清楚", "號誌時間變長", "人行空間變好", "違停變少", "其他"];
   var COLORS = ["#C46A00", "#1D5C8A", "#2B7A57", "#B23F2C", "#7B4E9E", "#E2B11B"];
   var QUAD = {
-    priority: { name: "優先改善", short: "優先", v: "--q-priority", desc: "事故多，也很多人覺得危險。" },
-    prevent: { name: "提早預防", short: "預防", v: "--q-prevent", desc: "事故還不多，但很多人覺得危險。這是熱點分析看不到、本提案最想找出來的地方。" },
-    blind: { name: "可能的盲點", short: "盲點", v: "--q-blind", desc: "事故多，回報卻很少。可能大家習慣了，市府可以主動檢視。" },
-    calm: { name: "相對安全", short: "安全", v: "--q-calm", desc: "事故少，覺得危險的人也少。" }
+    priority: { name: "危險", short: "危險", v: "--q-priority", desc: "事故多，也很多人覺得危險：要優先改善。" },
+    prevent: { name: "潛在危險", short: "潛在", v: "--q-prevent", desc: "事故還不多，但很多人覺得危險：要提早預防。這是熱點分析看不到、本提案最想找出來的地方。" },
+    blind: { name: "盲點", short: "盲點", v: "--q-blind", desc: "事故多，回報卻很少：可能大家習慣了，或經過的多是外地人，市府要主動看。" },
+    calm: { name: "安全", short: "安全", v: "--q-calm", desc: "事故少，覺得危險的人也少：相對安全。" }
   };
   var CARE_TEXT = { many: "很多人關心這裡", some: "有人關心這裡", few: "回報還少：資訊不足，不代表安全" };
   var ROUTE = {
@@ -29,6 +29,15 @@
   var S = { roads: null, locs: [], meta: null, byId: {}, board: null, view: "citizen", layer: "reports", sel: null, me: null, map: null, markers: {}, labels: [] };
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  /* 我的回報：LINE 裡記在這支手機（同一個 LINE 帳號每個路口只計一次）；一般瀏覽器只記在這次瀏覽 */
+  var HKEY = "taoguo:history:";
+  function histStore() { var TL = window.TaoguoLINE; try { return TL && TL.user ? window.localStorage : window.sessionStorage; } catch (e) { return null; } }
+  function histId() { var TL = window.TaoguoLINE; return TL && TL.user ? TL.user.id : "guest"; }
+  function myHistory() { try { var st = histStore(); return st ? JSON.parse(st.getItem(HKEY + histId()) || "[]") : []; } catch (e) { return []; } }
+  function saveHistory(list) { try { var st = histStore(); if (st) st.setItem(HKEY + histId(), JSON.stringify(list)); } catch (e) {} }
+  function myReport(id, mode) { return myHistory().filter(function (h) { return h.loc === id && (!mode || h.mode === mode); })[0]; }
+  function mmdd(iso) { var d = new Date(iso); return (d.getMonth() + 1) + "/" + d.getDate(); }
+  function myLine(h) { return h.mode === "praise" ? "說這裡變好了（" + h.praise + "）" : h.cat + "・" + h.sev; }
   function sum(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
   function fmt(n) { return Number(n).toLocaleString("zh-TW"); }
 
@@ -265,7 +274,8 @@
         cls = "mk care-" + L.care + (L.improved ? " improved" : "");
         html = '<span class="n">' + (L.improved ? "✓" : v) + "</span>" +
           (ROUTE[L.route] && ROUTE[L.route].tag ? '<i class="rtb">' + ROUTE[L.route].tag + "</i>" : "") +
-          (L.trend.rising ? RISE_TAG : "");
+          (L.trend.rising ? RISE_TAG : "") +
+          (myReport(L.id) ? '<i class="mineb" title="你回報過">我</i>' : "");
         label = L.name + "，回報 " + v + " 人（示意資料），" + careText(L) + (L.trend.rising ? "，最近變多" : "");
       }
       if (S.layer !== "compare") { el.style.background = ""; el.style.borderColor = ""; }
@@ -299,7 +309,7 @@
     } else {
       var sw = function (c, t, txt) { return '<span class="li"><span class="cb care-' + c + '" style="width:18px;height:18px;font-size:10px">' + t + "</span>" + txt + "</span>"; };
       h = '<div class="row">' + sw("many", "", "很多人關心") + sw("some", "", "有人關心") + sw("few", "", "回報還少") + sw("few improved", "✓", "變好了") + "</div>" +
-        '<div class="row"><span class="li"><i class="rtb static">快</i>快速通道</span><span class="li"><i class="rsb static">↑</i>最近變多</span><span class="li"><span class="badge mock">示意資料</span></span>數字＝回報人數</div>';
+        '<div class="row"><span class="li"><i class="rtb static">快</i>快速通道</span><span class="li"><i class="rsb static">↑</i>最近變多</span><span class="li"><i class="mineb static">我</i>我回報過</span><span class="li"><span class="badge mock">示意資料</span></span>數字＝回報人數</div>';
     }
     $("legend").innerHTML = h;
   }
@@ -331,6 +341,7 @@
       '<p class="lede">市民回報差點出事的路口，其他人可以按「我也遇過」。地圖把市民的經驗和真實事故放在一起看，找出還沒出事、但大家都覺得危險的地方。</p>' +
       '<p class="note">點地圖上的圓圈，看每個路口的小檔案；右上角「＋ 我要回報」可以體驗回報流程。</p>' +
       '<div class="search"><input id="q" type="search" autocomplete="off" placeholder="搜尋路名，例如：延平路" aria-label="搜尋路名"><ul class="qres" id="qres"></ul></div>' +
+      myHistoryHTML() +
       '<div class="stats">' +
       '<div class="stat"><b>' + fmt(S.meta.accidents_recent) + '</b><span>近三年事故<br><span class="badge real">真實</span></span></div>' +
       '<div class="stat"><b>' + fmt(S.meta.a1_recent) + '</b><span>其中死亡事故<br><span class="badge real">真實</span></span></div>' +
@@ -364,6 +375,16 @@
       });
     });
     renderMarkers();
+  }
+
+  function myHistoryHTML() {
+    var list = myHistory().slice().reverse();
+    if (!list.length) return "";
+    return '<div class="sec mine"><div class="sec-h"><h3><i class="mineb static">我</i>我的回報（' + list.length + '）</h3><span class="badge mock">示意</span></div>' +
+      '<ol class="board">' + list.map(function (h) {
+        var L = S.byId[h.loc]; if (!L) return "";
+        return '<li><button class="brow" data-id="' + L.id + '">' + careBadge(L, 24) + '<span class="nm">' + esc(L.name) + '<br><small class="note">' + mmdd(h.date) + " " + esc(myLine(h)) + (h.updates ? "・補充 " + h.updates + " 次" : "") + '</small></span><span class="rt rt-' + L.route + '">' + esc(progressLabel(L)) + "</span></button></li>";
+      }).join("") + '</ol><p class="note">市府處理有進度時，會在這裡和 LINE 通知你。</p></div>';
   }
 
   function searchLocs(q) {
@@ -498,6 +519,7 @@
     var accSum = sum(L.real.acc_by_year);
     var html =
       '<button class="back" id="back">← 回到全部路口</button>' +
+      (myReport(L.id) ? '<p class="minenote"><i class="mineb static">我</i>你在 ' + mmdd(myReport(L.id).date) + " 回報過這裡：" + esc(myLine(myReport(L.id))) + "。目前進度：" + esc(progressLabel(L)) + "</p>" : "") +
       '<div class="titlerow"><div class="wx">' + careBadge(L, 52) + '</div><div><p class="eyebrow">路口小檔案</p><h1 class="ptitle">' + esc(L.name) + '</h1></div></div>' +
       '<div class="tagsrow"><span class="qtag" style="--qc:var(' + q.v + ');background:var(' + q.v + ')">' + q.name + '</span><span class="stagetag">處理進度：' + L.stage + "</span>" + (L.trend.rising ? '<span class="stagetag risetag">' + RISE_TAG + "最近變多</span>" : "") + "</div>" +
       '<p class="wxline">' + careText(L) + "・" + esc(L.district) + "</p>" +
@@ -579,7 +601,7 @@
   var R = {
     waitingForPick: false, ctx: null,
     open: function (opts) {
-      R.ctx = { loc: opts.loc || null, mode: opts.mode || null, quick: !!opts.quick, cat: null, time: null, freq: null, sev: null, praise: null };
+      R.ctx = { loc: opts.loc || null, mode: opts.mode || null, quick: !!opts.quick, cat: null, time: null, freq: null, sev: null, praise: null, update: false };
       $("phone").hidden = false;
       $("chat").innerHTML = "";
       var TL = window.TaoguoLINE || {};
@@ -587,7 +609,16 @@
       R.bot('這裡用來回報「差點出事、讓人害怕」的路口。<br><b>緊急狀況</b>（大坑洞、號誌全滅、路樹倒塌）請直接打 <b>1999</b>；有人受傷請打 <b>110／119</b>。');
       if (!S.me) R.stepAvatar(); else R.afterAvatar();
     },
-    close: function () { $("phone").hidden = true; R.waitingForPick = false; $("phone").classList.remove("peek"); },
+    finishUpdate: function (L) {
+      var hist = myHistory(), h = hist.filter(function (x) { return x.loc === L.id && x.mode === "concern"; })[0];
+      if (h) { h.updates = (h.updates || 0) + 1; h.cat = R.ctx.cat; h.sev = R.ctx.sev; h.time = R.ctx.time; h.last = new Date().toISOString(); saveHistory(hist); }
+      if (R.ctx.text) L.comments.unshift({ tone: "concern", category: R.ctx.cat, text: R.ctx.text, user: S.me.user, mine: true });
+      refresh(L);
+      R.bot("已補充到你原本的回報：" + esc(R.ctx.cat + "・" + R.ctx.sev) + "。<b>人數不重複計算</b>，但承辦看摘要時會看到最新的狀況。");
+      R.opts(["看這個路口", "關閉"], function (t) { if (t === "看這個路口") { R.close(); select(L.id, true); } else R.close(); });
+      renderMarkers();
+    },
+    close: function () { $("phone").hidden = true; R.waitingForPick = false; $("phone").classList.remove("peek"); if (S.view !== "gov" && !S.sel) renderOverview(); },
     scroll: function () { var c = $("chat"); c.scrollTop = c.scrollHeight; },
     bot: function (html) { var d = document.createElement("div"); d.className = "msg bot"; d.innerHTML = html; $("chat").appendChild(d); R.scroll(); return d; },
     me: function (text) { var d = document.createElement("div"); d.className = "msg me"; d.textContent = text; $("chat").appendChild(d); R.scroll(); },
@@ -677,12 +708,14 @@
       if (!fromPick) R.me(L.name);
       pulse(L.id);
       var n = R.ctx.mode === "praise" ? L.reports.praise : L.reports.concern;
-      var TL = window.TaoguoLINE;
-      if (TL && TL.has(L.id, R.ctx.mode)) {
-        R.bot("你用這個 LINE 帳號回報過這個路口了。<b>一人一次</b>，同一個路口只計一次。");
-        R.opts(["看這個路口", "回報別的路口", "關閉"], function (t) {
+      var mine = myReport(L.id, R.ctx.mode);
+      if (mine && !R.ctx.update) {
+        R.bot("你在 <b>" + mmdd(mine.date) + "</b> 回報過這個路口了：" + esc(myLine(mine)) + "。<br>目前進度：<b>" + esc(progressLabel(L)) + "</b>。<b>一人一次</b>，同一個路口只計一次。");
+        var opts = R.ctx.mode === "praise" ? ["看這個路口", "回報別的路口", "關閉"] : ["補充新的狀況", "看這個路口", "回報別的路口", "關閉"];
+        R.opts(opts, function (t) {
           if (t === "看這個路口") { R.close(); select(L.id, true); }
           else if (t === "回報別的路口") { R.ctx.loc = null; R.stepWhere(); }
+          else if (t === "補充新的狀況") { R.ctx.update = true; R.bot("好，補充的內容會加在你原本的回報裡，人數不重複計算。"); R.stepCat(); }
           else R.close();
         });
         return;
@@ -732,6 +765,7 @@
     },
     finish: function () {
       var L = S.byId[R.ctx.loc], r = L.reports, u = S.me.user;
+      if (R.ctx.update) { R.finishUpdate(L); return; }
       var before = r.users[u] || 0;
       if (R.ctx.mode === "praise") {
         r.praise += 1;
@@ -746,7 +780,9 @@
         if (R.ctx.text) L.comments.unshift({ tone: "concern", category: R.ctx.cat, text: R.ctx.text, user: u, mine: true });
       }
       r.users[u] = before + 1;
-      if (window.TaoguoLINE) window.TaoguoLINE.mark(L.id, R.ctx.mode);
+      var hist = myHistory();
+      hist.push({ loc: L.id, mode: R.ctx.mode, cat: R.ctx.cat, sev: R.ctx.sev, time: R.ctx.time, praise: R.ctx.praise, date: new Date().toISOString() });
+      saveHistory(hist);
       refresh(L);
       var rank = R.ctx.mode === "praise" ? r.praise : r.concern;
       var d = document.createElement("div"); d.className = "done";
@@ -754,7 +790,8 @@
         '<div class="stage"><div class="crowdline">' + crowdHTML(r.users, 14) + '</div><div class="me">' + K.avatar(S.me.user, S.me.color, 44) + '</div><div class="road"></div></div>' +
         '<p class="mine">' + esc(R.ctx.mode === "praise" ? "你說：" + R.ctx.praise : "你回報：" + R.ctx.cat + "・" + R.ctx.time + "・" + (R.ctx.freq || "") + "・" + R.ctx.sev) + "</p>" +
         '<p class="note">' + (R.ctx.mode === "praise" ? "謝謝你！我們會把這句感謝轉給負責改善的單位。" : "我們每月會把這裡整理給市府。處理有進展時，會在這裡通知你。") + "</p>" +
-        '<p class="note">（示意：這筆回報只存在你這次瀏覽，不會送出' + (window.TaoguoLINE && window.TaoguoLINE.user ? '；同一個 LINE 帳號每個路口只計一次' : '') + '）</p>';
+        '<p class="note"><i class="mineb static">我</i>已加入「我的回報」，地圖上這個路口會標「我」，之後可以回來看進度。</p>' +
+        '<p class="note">（示意：這筆回報不會送出' + (window.TaoguoLINE && window.TaoguoLINE.user ? '；同一個 LINE 帳號每個路口只計一次' : '') + '）</p>';
       $("chat").appendChild(d);
       var me = d.querySelector(".stage .me"), line = d.querySelector(".crowdline");
       requestAnimationFrame(function () {

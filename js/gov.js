@@ -373,10 +373,35 @@
       card.scrollIntoView({ block: "start", behavior: "smooth" });
       card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash");
     } else {
-      var L = S.byId[id];
-      $("pin").insertAdjacentHTML("afterbegin", '<p class="accnote gnote">「' + U.esc(L.name) + "」本月沒有送審（" + U.esc(L.route === "next" ? "下個月優先" : "回報累積中") + "）。</p>");
-      $("panel").scrollTop = 0;
+      quickCard(S.byId[id]);
     }
+  }
+
+  /* 承辦主動查看：任何路口都能叫出 AI 摘要；需要時可主動列入本月案件 */
+  function quickCard(L) {
+    var old = $("quick"); if (old) old.remove();
+    var tags = [];
+    if (L.trend.rising && !L.improved) tags.push('<span class="qtag rise">' + U.RISE_TAG + "最近變多</span>");
+    if (L.improved) tags.push('<span class="qtag ok">✓ 已改善</span>');
+    var Q = { priority: "危險", prevent: "潛在危險", blind: "盲點", calm: "安全" };
+    tags.push('<span class="qtag">' + Q[L.quadrant] + "</span>");
+    var html = '<article class="case quick" id="quick"><header><button class="case-name" data-go="' + L.id + '">' + U.esc(L.name) + '</button><span class="case-meta">' + U.esc(L.district) + "・" + U.esc(L.route === "next" ? "下個月優先" : L.stage) + "</span></header>" +
+      '<p class="qtags">' + tags.join("") + '<span class="note">本月沒有送審，承辦主動查看</span></p>' +
+      '<p class="case-stats"><span><b class="mono">' + L.reports.concern + '</b> 人回報<span class="badge mock">示意</span></span><span>近三年事故 <b class="mono">' + L.real.acc_recent + "</b> 件" +
+      (L.real.a1_recent ? "・死亡 <b class=\"mono\">" + L.real.a1_recent + "</b> 件" : "") + '<span class="badge real">真實</span></span></p>' +
+      (L.trend.rising && !L.improved ? '<p class="case-reason">每月回報 ' + U.trendNumbers(L).before + " → " + U.trendNumbers(L).recent + " 人</p>" : "") +
+      '<div class="case-ai"><p class="b-label">AI 摘要</p><p>' + U.esc(U.summaryOf(L)) + "</p></div>" +
+      '<ul class="case-causes">' + topCauses(L, 2) + "</ul>" +
+      '<div class="case-actions">' + (L.improved ? "" : '<button class="btn small" id="qadd">主動列入本月案件</button>') + '<button class="btn small ghost" id="qclose">關閉</button></div></article>';
+    $("pin").insertAdjacentHTML("afterbegin", html);
+    $("panel").scrollTop = 0;
+    $("qclose").addEventListener("click", function () { $("quick").remove(); });
+    var add = $("qadd");
+    if (add) add.addEventListener("click", function () {
+      L.route = "fast"; L.route_reason = "承辦主動列入：" + (L.trend.rising ? "最近回報變多" : "承辦查看後判斷需要處理");
+      U.renderMarkers(); render(); focus(L.id);
+    });
+    U.pulse(L.id);
   }
 
   function setView(v) {
