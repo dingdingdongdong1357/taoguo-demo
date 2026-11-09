@@ -5,7 +5,7 @@
   var A, S, U;
   var GROUPS = [
     { route: "district", name: "各區排行", note: function () { return "每個行政區前 " + S.meta.district_quota + " 名，每區名額一樣"; } },
-    { route: "fast", name: "快速通道", note: function () { return "回報少但情況嚴重"; } }
+    { route: "fast", name: "急件", note: function () { return "人數還少，但有急迫訊號"; } }
   ];
   var replied = [], adjusted = [];
   var DEFER = ["本月人力已滿", "已有工程計畫，會一併處理", "需要更多回報確認", "需要其他機關先處理"];
@@ -114,7 +114,7 @@
   function risingSec(cases) {
     var list = S.locs.filter(function (L) { return L.trend.rising && !L.improved && cases.indexOf(L) < 0; });
     if (!list.length) return "";
-    return '<div class="sec"><div class="sec-h"><h3>' + U.RISE_TAG + "最近變多（" + list.length + '）</h3><span class="src">本區快速通道已滿，提醒主動看</span></div>' +
+    return '<div class="sec"><div class="sec-h"><h3>' + U.RISE_TAG + "最近變多（" + list.length + '）</h3><span class="src">本區急件已滿，提醒主動看</span></div>' +
       '<p class="note">回報總數還不多、沒有進入本月名單，但最近 ' + S.meta.rising.window + " 個月突然變多。路口可能正在變危險（新開店家、施工改道、新設施擋視線），建議趁事故累積之前先現勘。</p>" +
       list.map(function (L) {
         var n = U.trendNumbers(L);
@@ -145,7 +145,7 @@
       '<div class="stat"><b>' + cases.filter(function (L) { return !L.dispatched; }).length + '</b><span>待派案</span></div>' +
       '<div class="stat"><b>' + cases.filter(function (L) { return L.owners.length >= 3; }).length + '</b><span>建議會勘</span></div>' +
       '<div class="stat"><b>' + next.length + '</b><span>下個月優先</span></div></div>' +
-      '<p class="note">本月送審：各區排行 ' + count("district") + " 件（" + Object.keys(S.meta.districts).length + " 區 × 每區 " + S.meta.district_quota + " 名）、快速通道 " + count("fast") + " 件。案件數由名額控制，不會因為回報暴增而壓垮承辦。</p>" +
+      '<p class="note">本月送審：各區排行 ' + count("district") + " 件（" + Object.keys(S.meta.districts).length + " 區 × 每區 " + S.meta.district_quota + " 名）、急件 " + count("fast") + " 件。案件數由名額控制，不會因為回報暴增而壓垮承辦。</p>" +
       GROUPS.map(function (g) {
         var list = cases.filter(function (L) { return L.route === g.route; });
         return '<div class="sec"><div class="sec-h"><h3>' + g.name + "（" + list.length + "）</h3><span class=\"src\">" + g.note() + "</span></div>" +

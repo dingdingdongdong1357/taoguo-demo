@@ -17,7 +17,7 @@
   var CARE_TEXT = { many: "很多人關心這裡", some: "有人關心這裡", few: "回報還少：資訊不足，不代表安全" };
   var ROUTE = {
     district: { name: "各區排行", tag: "", desc: function () { return "每個行政區自己的前 " + S.meta.district_quota + " 名，每區名額一樣"; } },
-    fast: { name: "快速通道", tag: "快", desc: function () { return "回報人數還少，但有急迫訊號：最近突然變多、有人曾經擦撞並附照片，或里長、學校代表回報（每區每月最多 1 件）"; } }
+    fast: { name: "急件", tag: "急", desc: function () { return "回報人數還少，但有急迫訊號：最近突然變多、有人曾經擦撞並附照片，或里長、學校代表回報（每區每月最多 1 件）"; } }
   };
   function careText(L) { return L.improved ? "多數人說這裡變好了" : CARE_TEXT[L.care]; }
   function careBadge(L, size) {
@@ -111,7 +111,7 @@
     return '<div class="trend" role="img" aria-label="每月回報人數，最近 ' + w + ' 個月每月約 ' + n.recent + ' 人，之前每月約 ' + n.before + ' 人">' + bars + "</div>" +
       '<div class="trend-ax"><span>' + ymAdd(L.trend.start, 0) + "</span><span>最近 " + w + " 個月</span></div>" +
       (L.trend.rising
-        ? '<p class="cmp rise">' + RISE_TAG + "最近 " + w + " 個月每月約 <b>" + n.recent + "</b> 人回報，之前每月約 <b>" + n.before + "</b> 人：<b>最近變多</b>。回報總數還不多，排行不一定排得到，但這裡可能正在變危險（例如附近新開店家、施工改道、新設施擋住視線）。這種路口會走<b>快速通道</b>直接送市府（每區每月最多 1 件）。</p>"
+        ? '<p class="cmp rise">' + RISE_TAG + "最近 " + w + " 個月每月約 <b>" + n.recent + "</b> 人回報，之前每月約 <b>" + n.before + "</b> 人：<b>最近變多</b>。回報總數還不多，排行不一定排得到，但這裡可能正在變危險（例如附近新開店家、施工改道、新設施擋住視線）。這種路口會列為<b>急件</b>直接送市府（每區每月最多 1 件）。</p>"
         : '<p class="note">最近 ' + w + " 個月每月約 " + n.recent + " 人，之前每月約 " + n.before + " 人。最近 " + w + " 個月的平均達到之前的 " + S.meta.rising.ratio + " 倍、且至少 " + S.meta.rising.min + " 人，就會標示「最近變多」。</p>");
   }
   function refresh(L) {
@@ -310,7 +310,7 @@
     } else {
       var sw = function (c, t, txt) { return '<span class="li"><span class="cb care-' + c + '" style="width:18px;height:18px;font-size:10px">' + t + "</span>" + txt + "</span>"; };
       h = '<div class="row">' + sw("many", "", "很多人關心") + sw("some", "", "有人關心") + sw("few", "", "回報還少") + sw("few improved", "✓", "變好了") + "</div>" +
-        '<div class="row"><span class="li"><i class="rtb static">快</i>快速通道</span><span class="li"><i class="rsb static">↑</i>最近變多</span><span class="li"><i class="mineb static">我</i>我回報過</span><span class="li">🔍 現勘中</span><span class="li">🚧 施工中</span><span class="li"><span class="badge mock">示意資料</span></span>數字＝回報人數</div>';
+        '<div class="row"><span class="li"><i class="rtb static">急</i>急件</span><span class="li"><i class="rsb static">↑</i>最近變多</span><span class="li"><i class="mineb static">我</i>我回報過</span><span class="li">🔍 現勘中</span><span class="li">🚧 施工中</span><span class="li"><span class="badge mock">示意資料</span></span>數字＝回報人數</div>';
     }
     $("legend").innerHTML = h;
   }
@@ -408,14 +408,14 @@
   }
 
   /* Each district keeps its own ranking, so quieter districts are not drowned out. */
-  var ROUTE_LABEL = { district: "本月送市府", fast: "快速通道", next: "下個月優先", none: "收集中" };
+  var ROUTE_LABEL = { district: "本月送市府", fast: "急件", next: "下個月優先", none: "收集中" };
   function boardHTML() {
     var dists = Object.keys(S.meta.districts).sort(function (a, b) { return S.meta.districts[b] - S.meta.districts[a]; });
     var d = S.board && dists.indexOf(S.board) >= 0 ? S.board : dists[0];
     var rows = S.locs.filter(function (L) { return L.district === d && !L.improved; })
       .sort(function (a, b) { return b.reports.concern - a.reports.concern; }).slice(0, 5);
     return '<div class="sec"><div class="sec-h"><h3>各區關心排行（本月）</h3><span class="badge mock">示意</span></div>' +
-      '<p class="note">每個行政區只跟自己比：每區每月前 ' + S.meta.district_quota + " 名送市府（深藍色，標籤是市府目前的處理進度），每區名額一樣；回報少但情況嚴重的路口走快速通道。名額滿了的排到下個月優先。</p>" +
+      '<p class="note">每個行政區只跟自己比：每區每月前 ' + S.meta.district_quota + " 名送市府（深藍色，標籤是市府目前的處理進度），每區名額一樣；人數還少、但最近變多或曾經擦撞的路口列為急件。名額滿了的排到下個月優先。</p>" +
       '<div class="tabs btabs" role="tablist">' + dists.map(function (x) {
         return '<button role="tab" data-d="' + x + '" aria-selected="' + (x === d) + '">' + x + "</button>";
       }).join("") + "</div>" +

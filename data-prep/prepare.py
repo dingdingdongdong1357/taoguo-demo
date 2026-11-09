@@ -35,7 +35,7 @@ YEARS = list(range(2019, 2026))
 REPORT_HIGH_PCT, REPORT_SOME_PCT = 70, 35  # 回報多＝本區前 30%；有人關心＝前 65%
 N_FAST_REAL = 2
 N_DISTRICT = 3        # 各區排行：每區每月前 3 名送市府，每區名額一樣（依市府人力決定）
-MAIN_DISTRICT = "中壢區"  # 快速通道：回報少、但這裡發生過死亡事故（真實資料）
+MAIN_DISTRICT = "中壢區"  # 急件：回報少、但這裡發生過死亡事故（真實資料）
 RECENT = (2023, 2025)
 
 CLASS_RANK = {"trunk": 6, "primary": 5, "secondary": 4, "tertiary": 3, "unclassified": 2,
@@ -510,7 +510,7 @@ for dist in sorted({L["district"] for L in locations}):
     for i, L in enumerate(board[:N_DISTRICT], 1):
         L["route"] = "district"
         L["route_reason"] = f"{dist}本月關心排行第 {i} 名，送市府處理（每區前 {N_DISTRICT} 名）。"
-# 舊規則（死亡事故走快速通道）保留在這裡，只為了讓後面的亂數順序不變、示意數字跟簡報一致；最後會撤銷（見下方「快速通道：最近變多」）。
+# 舊規則（死亡事故列為急件）保留在這裡，只為了讓後面的亂數順序不變、示意數字跟簡報一致；最後會撤銷（見下方「急件：最近變多」）。
 low_with_death = sorted([L for L in locations if L["route"] == "none" and L["care"] != "many" and L["real"]["a1_recent"] > 0 and not L["improved"]],
                         key=lambda L: (-L["real"]["acc_recent"], L["id"]))
 for L in low_with_death[:N_FAST_REAL]:
@@ -590,13 +590,13 @@ for L in locations:
     assert sum(counts) == total
     L["trend"] = {"start": cur["start"], "counts": counts, "rising": rising_of(counts)}
     assert L["trend"]["rising"] == (L["name"] in RISING_IDS), L["name"]
-# 快速通道不看死亡事故（那是主流熱點的範圍）：撤銷舊規則選進來的路口。
+# 急件不看死亡事故（那是主流熱點的範圍）：撤銷舊規則選進來的路口。
 for L in locations:
     if L.pop("_death_fast", False):
         L["route"], L["route_reason"] = "none", ""
         if L["stage"] == "已收到":
             L["stage"] = "收集中"
-# 快速通道：最近變多（每區每月最多 1 件）。回報總數還少、排行排不到，但正在變危險，直接送審。
+# 急件：最近變多（每區每月最多 1 件）。回報總數還少、排行排不到，但正在變危險，直接送審。
 FAST_PER_DISTRICT = 1
 for dist in sorted({L["district"] for L in locations}):
     cand = sorted([L for L in locations if L["district"] == dist and L["trend"]["rising"] and not L["improved"] and L["route"] in ("none", "next")],

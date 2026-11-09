@@ -76,7 +76,7 @@
   var note = document.querySelector("#pin .accnote").textContent;
   var total = L.real.acc_by_year.reduce(function (a, b) { return a + b; }, 0);
   check(note.indexOf(String(total)) >= 0 && note.indexOf(String(L.real.acc_recent)) >= 0, "小檔案的真實事故數字與資料一致");
-  check(document.querySelectorAll("#pin .routes li").length === 2, "小檔案說明兩條送審路徑（各區排行、快速通道）");
+  check(document.querySelectorAll("#pin .routes li").length === 2, "小檔案說明兩條送審路徑（各區排行、急件）");
   check(document.querySelectorAll("#pin .badge.mock").length >= 5 && document.querySelectorAll("#pin .badge.real").length >= 1, "小檔案標示真實／示意");
 
   // report flow

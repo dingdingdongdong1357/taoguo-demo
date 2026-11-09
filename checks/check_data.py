@@ -74,9 +74,9 @@ for x in L:
     total = (int(M["data_now"][:4]) - int(M["data_start"][:4])) * 12 + int(M["data_now"][5:]) - int(M["data_start"][5:]) + 1
     check(stage_months == total, f"{x['id']} 各階段月數加起來＝整段期間")
     if x["route"] == "fast":
-        check(x["care"] != "many", f"{x['id']} 快速通道只給回報不多的路口")
+        check(x["care"] != "many", f"{x['id']} 急件只給回報不多的路口")
         if "死亡事故" in x["route_reason"]:
-            check(x["real"]["a1_recent"] > 0, f"{x['id']} 以死亡事故走快速通道時，近三年真實資料確實有死亡事故")
+            check(x["real"]["a1_recent"] > 0, f"{x['id']} 以死亡事故列為急件時，近三年真實資料確實有死亡事故")
         check(x["real"]["a1_recent"] <= x["real"]["a1_total"], f"{x['id']} 近三年死亡事故不超過全部")
     check(len(x["comments"]) >= 2, f"{x['id']} 至少兩則留言")
 
@@ -84,7 +84,7 @@ q = {}
 for x in L:
     q[x["quadrant"]] = q.get(x["quadrant"], 0) + 1
 check(all(q.get(k, 0) >= 3 for k in ("priority", "prevent", "calm")) and "blind" not in q, f"三種對照類型各至少 3 個：{q}")
-check(all(x["route"] != "fast" or x["trend"]["rising"] or "擦撞" in x["route_reason"] for x in L), "快速通道只給最近變多或曾經擦撞的路口")
+check(all(x["route"] != "fast" or x["trend"]["rising"] or "擦撞" in x["route_reason"] for x in L), "急件只給最近變多或曾經擦撞的路口")
 
 # routes: no citywide ranking; every district sends exactly its own top N
 ranked = sorted([x for x in L if not x["improved"]], key=lambda x: (-x["reports"]["concern"], x["id"]))
