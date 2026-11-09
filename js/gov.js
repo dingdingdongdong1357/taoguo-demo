@@ -44,7 +44,7 @@
   function caseCard(L) {
     var site = L.owners.length >= 3;
     return '<article class="case case-' + L.route + '" id="case-' + L.id + '">' +
-      '<header><button class="case-name" data-go="' + L.id + '">' + U.esc(L.name) + '</button><span class="case-meta">' + U.esc(L.district) + "・" + U.esc(L.stage) + "</span></header>" +
+      '<header>' + (L.prio ? '<b class="pn" title="本月處理順序">' + L.prio + "</b>" : "") + '<button class="case-name" data-go="' + L.id + '">' + U.esc(L.name) + '</button><span class="case-meta">' + U.esc(L.district) + "・" + U.esc(L.stage) + "</span></header>" +
       '<p class="case-reason">' + U.esc(L.route_reason) + "</p>" +
       '<p class="case-stats"><span><b class="mono">' + L.reports.concern + '</b> 人回報<span class="badge mock">示意</span></span><span>近三年事故 <b class="mono">' + L.real.acc_recent + "</b> 件" +
       (L.real.a1_recent ? "・死亡 <b class=\"mono\">" + L.real.a1_recent + "</b> 件" : "") + '<span class="badge real">真實</span></span></p>' +
@@ -124,9 +124,32 @@
       }).join("") + "</div>";
   }
 
+  /* 處理順序：名額決定「哪些」案件進來（每區前 3 名＋急件，不變）；這裡只排「先處理哪一件」。
+     規則看得到、可以解釋：① 近三年有死亡事故 ② 急件 ③ 事故排名與回報排名的平均（0–100，和散布圖同一套）。 */
+  function priority(cases) {
+    var R0 = U.ranks();
+    var score = function (L) { return (R0[L.id].x + R0[L.id].y) / 2; };
+    var list = cases.slice().sort(function (a, b) {
+      return (b.real.a1_recent > 0) - (a.real.a1_recent > 0) || (b.route === "fast") - (a.route === "fast") || score(b) - score(a) || (a.id < b.id ? -1 : 1);
+    });
+    list.forEach(function (L, i) {
+      L.prio = i + 1;
+      L.prioWhy = (L.real.a1_recent ? ["死亡事故 " + L.real.a1_recent + " 件"] : []).concat(L.route === "fast" ? ["急件"] : [])
+        .concat(["事故排 " + R0[L.id].x, "回報排 " + R0[L.id].y]);
+    });
+    return list;
+  }
+  function prioSec(list) {
+    return '<div class="sec"><div class="sec-h"><h3>本月處理順序</h3><span class="src">先處理上面的</span></div>' +
+      '<p class="note">排序規則：① 近三年有死亡事故 ② 急件 ③ 事故排名和回報排名的平均（0＝最少，100＝最多）。只決定先後，不改變名額。</p>' +
+      '<ol class="prio">' + list.map(function (L) {
+        return '<li><button class="prow" data-go="' + L.id + '"><b class="pn">' + L.prio + '</b><span class="nm">' + U.esc(L.name) + "<small>" + U.esc(L.district) + "・" + U.esc(L.dispatched ? "已派案" : "待派案") + "</small></span>" +
+          '<span class="why">' + L.prioWhy.map(function (w) { return '<i class="' + (w.indexOf("死亡") === 0 ? "w-dead" : w === "急件" ? "w-fast" : "") + '">' + U.esc(w) + "</i>"; }).join("") + "</span></button></li>";
+      }).join("") + "</ol></div>";
+  }
   function render() {
     var t = today();
-    var cases = S.locs.filter(function (L) { return ["district", "fast"].indexOf(L.route) >= 0; });
+    var cases = priority(S.locs.filter(function (L) { return ["district", "fast"].indexOf(L.route) >= 0; }));
     var deferred = S.locs.filter(function (L) { return L.deferred; });
     var next = S.locs.filter(function (L) { return L.route === "next"; });
     var count = function (r) { return cases.filter(function (L) { return L.route === r; }).length; };
@@ -146,6 +169,7 @@
       '<div class="stat"><b>' + cases.filter(function (L) { return L.owners.length >= 3; }).length + '</b><span>建議會勘</span></div>' +
       '<div class="stat"><b>' + next.length + '</b><span>下個月優先</span></div></div>' +
       '<p class="note">本月送審：各區排行 ' + count("district") + " 件（" + Object.keys(S.meta.districts).length + " 區 × 每區 " + S.meta.district_quota + " 名）、急件 " + count("fast") + " 件。案件數由名額控制，不會因為回報暴增而壓垮承辦。</p>" +
+      prioSec(cases) +
       GROUPS.map(function (g) {
         var list = cases.filter(function (L) { return L.route === g.route; });
         return '<div class="sec"><div class="sec-h"><h3>' + g.name + "（" + list.length + "）</h3><span class=\"src\">" + g.note() + "</span></div>" +
@@ -450,6 +474,7 @@
     S.view = v;
     document.querySelectorAll("#viewseg button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.view === v); });
     document.body.classList.toggle("gov", v === "gov");
+    U.setScat(v === "gov" ? window.innerWidth > 820 : S.layer === "compare");
     if (v === "gov") { S.sel = null; if (A.report) A.report.close(); render(); U.renderMarkers(); }
     else U.renderOverview();
     $("panel").scrollTop = 0;

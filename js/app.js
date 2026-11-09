@@ -376,7 +376,7 @@
   function scatterHTML(selId) {
     if (selId) {
       var p = ranks()[selId], d = p.y - p.x;
-      return '<p class="note">散布圖（地圖右上角）：事故排第 <b>' + p.x + "</b>、回報排第 <b>" + p.y + "</b>（0＝最少，100＝最多）。" +
+      return '<p class="note">在散布圖上（切到「兩者對照」會打開）：事故排第 <b>' + p.x + "</b>、回報排第 <b>" + p.y + "</b>（0＝最少，100＝最多）。" +
         (d > GAP ? "回報明顯比事故多：市民先感覺到危險。" : d < -GAP ? "事故明顯比回報多：要問為什麼沒人回報（例如車多但少人走路）。" : "兩邊差不多一致。") + "</p>";
     }
     var R0 = ranks(), gaps = S.locs.map(function (L) { return { L: L, d: R0[L.id].y - R0[L.id].x }; });
@@ -391,7 +391,7 @@
   }
   function bindScatter(root) {
     root.querySelectorAll(".sdot").forEach(function (g) {
-      var go = function () { select(g.dataset.id, true); };
+      var go = function () { if (S.view === "gov") onMarker(g.dataset.id); else select(g.dataset.id, true); };
       g.addEventListener("click", go);
       g.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
       g.addEventListener("mouseenter", function () { pulse(g.dataset.id); });
@@ -438,7 +438,7 @@
   function radiusText(r) { return r >= 1000 ? r / 1000 + " 公里" : r + " 公尺"; }
   function openNearby() {
     S.sel = null;
-    S.near = { c: STATION, r: (S.near && S.near.r) || 1000, status: "locating", msg: "" };
+    S.near = { c: STATION, r: (S.near && S.near.r) || 1000, sort: (S.near && S.near.sort) || "danger", status: "locating", msg: "" };
     renderMarkers();
     renderNearby();
     var fallback = function (msg) { if (!S.near) return; S.near.c = STATION; S.near.status = "demo"; S.near.msg = msg; renderNearby(); drawNearby(); };
@@ -453,7 +453,9 @@
   function renderNearby() {
     var n = S.near;
     if (!n) return;
-    var inR = S.locs.map(function (L) { return { L: L, d: distM(L, n.c) }; }).filter(function (x) { return x.d <= n.r; }).sort(function (a, b) { return a.d - b.d; });
+    var byDanger = function (a, b) { return b.L.real.a1_recent - a.L.real.a1_recent || b.L.real.acc_recent - a.L.real.acc_recent || a.d - b.d; };
+    var inR = S.locs.map(function (L) { return { L: L, d: distM(L, n.c) }; }).filter(function (x) { return x.d <= n.r; }).sort(n.sort === "near" ? function (a, b) { return a.d - b.d; } : byDanger);
+    var accMax = Math.max.apply(null, inR.map(function (x) { return x.L.real.acc_recent; }).concat([1])), top = inR.slice().sort(byDanger)[0];
     var acc = sum(inR.map(function (x) { return x.L.real.acc_recent; })), a1 = sum(inR.map(function (x) { return x.L.real.a1_recent; })),
       rep = sum(inR.map(function (x) { return x.L.reports.concern; })),
       worst = inR.slice().sort(function (a, b) { return b.L.reports.concern - a.L.reports.concern; })[0];
@@ -471,24 +473,35 @@
       '<div class="stat"><b>' + fmt(rep) + '</b><span>人回報要注意<br><span class="badge mock">示意</span></span></div></div>' +
       (S.types ? '<p class="accnote">範圍內的事故牽涉到：' + VEH_ORDER.map(function (k) { return k + " <b>" + sum(inR.map(function (x) { var t = typesOf(x.L); return t ? t.vehicles[k] || 0 : 0; })) + "</b> 件"; }).join("、") + "（警政署資料）。</p>" : "") +
       (worst ? '<p class="accnote">附近最多人回報的是 <b>' + esc(worst.L.name) + "</b>（" + worst.L.reports.concern + " 人），最常遇到「" + esc(topCat(worst.L)) + "」。</p>" : "") +
-      '<div class="sec"><div class="sec-h"><h3>範圍內的路口（由近到遠）</h3></div>' +
+      (top && top.L.real.acc_recent ? '<div class="dangertop"><p class="b-label">範圍內最危險的路口</p><button class="brow" data-id="' + top.L.id + '"><span class="nm">' + esc(top.L.name) + deadTag(top.L) + '</span><span class="mono v">事故 ' + top.L.real.acc_recent + " 件</span></button></div>" : "") +
+      '<div class="sec"><div class="sec-h"><h3>範圍內的路口</h3><div class="seg sortseg" role="group" aria-label="排序"><button type="button" data-s="danger" aria-pressed="' + (n.sort !== "near") + '">最危險</button><button type="button" data-s="near" aria-pressed="' + (n.sort === "near") + '">最近</button></div></div>' +
+      '<p class="note">「最危險」先看近三年死亡事故件數，再看事故總件數（真實資料）。</p>' +
       (inR.length ? '<ol class="board">' + inR.map(function (x) {
         var L = x.L;
-        return '<li><button class="brow" data-id="' + L.id + '">' + careBadge(L, 24) + '<span class="nm">' + esc(L.name) +
-          '<br><span class="sub">' + QUAD[L.quadrant].name + "・事故 " + L.real.acc_recent + " 件" + (L.real.a1_recent ? '（<b class="a1t">死亡 ' + L.real.a1_recent + "</b>）" : "") + (typesOf(L) && typesOf(L).vehicles["行人"] ? "・撞到行人 " + typesOf(L).vehicles["行人"] + " 件" : "") + "・回報 " + L.reports.concern + ' 人</span></span><span class="mono v">' + Math.round(x.d / 10) * 10 + " m</span></button></li>";
+        return '<li><button class="brow" data-id="' + L.id + '">' + careBadge(L, 24) + '<span class="nm">' + esc(L.name) + deadTag(L) +
+          '<span class="accbar"><i style="width:' + Math.round(L.real.acc_recent / accMax * 100) + '%"></i></span>' +
+          '<span class="sub">' + QUAD[L.quadrant].name + "・事故 " + L.real.acc_recent + " 件" + (typesOf(L) && typesOf(L).vehicles["行人"] ? "・撞到行人 " + typesOf(L).vehicles["行人"] + " 件" : "") + "・回報 " + L.reports.concern + ' 人</span></span><span class="mono v">' + Math.round(x.d / 10) * 10 + " m</span></button></li>";
       }).join("") + "</ol>" : '<p class="note">這個範圍內沒有 Demo 的路口，試試把範圍放大。</p>') + "</div>" +
       '<p class="note">事故＝路口 35 公尺內的 A1、A2 事故（桃園市政府開放資料）；回報為示意資料。定位只用來畫範圍，不會記錄或上傳。</p>';
     $("pin").innerHTML = html;
     $("back").addEventListener("click", function () { renderOverview(); fitAll(true); });
     $("pin").querySelectorAll(".nearseg button").forEach(function (b) { b.addEventListener("click", function () { S.near.r = +b.dataset.r; renderNearby(); drawNearby(); }); });
+    $("pin").querySelectorAll(".sortseg button").forEach(function (b) { b.addEventListener("click", function () { S.near.sort = b.dataset.s; renderNearby(); }); });
     $("pin").querySelectorAll(".brow").forEach(function (b) { b.addEventListener("click", function () { select(b.dataset.id, true); }); });
     $("panel").classList.add("expanded");
     $("panel").scrollTop = 0;
   }
 
   /* ---------------- controls ---------------- */
+  /* 散布圖是分析工具：切到「兩者對照」（或市府端）才自動打開，其他時候收成地圖上的小按鈕 */
+  function setScat(open) {
+    var sc = $("scatcard"), st = $("scattoggle");
+    if (!sc) return;
+    sc.classList.toggle("closed", !open); st.textContent = open ? "收起" : "散布圖"; st.setAttribute("aria-expanded", open);
+  }
   function setLayer(layer) {
     S.layer = layer;
+    setScat(layer === "compare" || (S.view === "gov" && window.innerWidth > 820));
     document.querySelectorAll("#layers button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.layer === layer); });
     renderMarkers();
     if (!S.sel) { if (S.near) renderNearby(); else renderOverview(); }
@@ -511,24 +524,26 @@
     var html = '<p class="eyebrow">DEMO ・ 中壢火車站周邊</p>' +
       '<h1 class="ptitle">哪裡讓人「差一點」出事？</h1>' +
       '<p class="lede">市民回報差點出事的路口，其他人可以按「我也遇過」。地圖把市民的經驗和真實事故放在一起看，找出還沒出事、但大家都覺得危險的地方。</p>' +
-      '<p class="note">點地圖上的圓圈，看每個路口的小檔案；右上角「＋ 我要回報」可以體驗回報流程。</p>' +
-      '<div class="search"><input id="q" type="search" autocomplete="off" placeholder="搜尋路名，例如：延平路" aria-label="搜尋路名"><ul class="qres" id="qres"></ul></div>' +
+      '<div class="findbox"><p class="b-label">先找到你關心的路口</p><div class="findrow"><div class="search"><input id="q" type="search" autocomplete="off" placeholder="搜尋路名，例如：延平路" aria-label="搜尋路名"><ul class="qres" id="qres"></ul></div>' +
+      '<button type="button" class="btn" id="nearp">📍 我附近</button></div><p class="note">或直接點地圖上的圓圈；右上角「＋ 我要回報」可以體驗回報流程。</p></div>' +
       myHistoryHTML() +
-      '<div class="stats">' +
-      '<div class="stat"><b>' + fmt(S.meta.accidents_recent) + '</b><span>近三年事故<br><span class="badge real">真實</span></span></div>' +
-      '<div class="stat"><b>' + fmt(S.meta.a1_recent) + '</b><span>其中死亡事故<br><span class="badge real">真實</span></span></div>' +
-      '<div class="stat"><b>' + fmt(totalReports) + '</b><span>市民回報<br><span class="badge mock">示意</span></span></div></div>' +
       '<div class="sec"><div class="sec-h"><h3>三種路口</h3><span class="src">事故（真實）× 回報（示意）</span></div><div class="quadgrid">' +
       ["prevent", "priority", "calm"].map(function (k) {
         var q = QUAD[k];
         return '<button class="qcard" style="--qc:var(' + q.v + ')" data-quad="' + k + '"><b>' + q.name + "</b><span>" + q.desc + "</span><em>" + counts[k] + " 個路口</em></button>";
-      }).join("") + "</div>" + scatterHTML(null) + "</div>" +
-      risingHTML() +
-      boardHTML() +
+      }).join("") + "</div>" + "</div>" +
       '<div class="sec"><div class="sec-h"><h3>從這幾個路口看起</h3></div><div class="picks">' +
       picks.map(function (L) {
         return '<button class="pick" data-id="' + L.id + '">' + careBadge(L, 30) + '<span><span class="nm">' + esc(L.name) + '</span><br><span class="sub">' + QUAD[L.quadrant].name + "・回報 " + L.reports.concern + " 人・近三年事故 " + L.real.acc_recent + " 件</span></span></button>";
       }).join("") + "</div></div>" +
+      '<details class="deep" id="deep"' + (S.deepOpen ? " open" : "") + '><summary>深入看看：整區數字、落差最大的路口、最近變多、各區排行</summary>' +
+      '<div class="stats">' +
+      '<div class="stat"><b>' + fmt(S.meta.accidents_recent) + '</b><span>近三年事故<br><span class="badge real">真實</span></span></div>' +
+      '<div class="stat"><b>' + fmt(S.meta.a1_recent) + '</b><span>其中死亡事故<br><span class="badge real">真實</span></span></div>' +
+      '<div class="stat"><b>' + fmt(totalReports) + '</b><span>市民回報<br><span class="badge mock">示意</span></span></div></div>' +
+      risingHTML() +
+      boardHTML() +
+      scatterHTML(null) + '</details>' +
       '<div class="sec"><p class="note"><b>資料說明</b>　事故：' + esc(S.meta.sources.accidents) + "。回報、留言、處理進度與權責單位皆為示意資料，用來展示系統運作方式。道路：" + esc(S.meta.sources.roads) + "。</p></div>";
     $("pin").innerHTML = html;
     $("pin").querySelectorAll(".pick, .brow").forEach(function (b) { b.addEventListener("click", function () { select(b.dataset.id, true); }); });
@@ -541,6 +556,8 @@
     });
     $("pin").querySelectorAll(".btabs button").forEach(function (b) { b.addEventListener("click", function () { S.board = b.dataset.d; renderOverview(); }); });
     bindScatter($("pin"));
+    $("nearp").addEventListener("click", openNearby);
+    $("deep").addEventListener("toggle", function () { S.deepOpen = this.open; });
     $("pin").querySelectorAll(".qcard").forEach(function (b) {
       b.addEventListener("click", function () {
         setLayer("compare");
@@ -701,6 +718,25 @@
       '<p class="note">撞法前三名：' + Object.keys(t.subs).filter(function (k) { return k !== "其他"; }).slice(0, 3).map(function (k) { return k + " " + t.subs[k]; }).join("、") +
       "。來源：" + esc(S.types.source) + "。</p></div>";
   }
+  /* 路口一張摘要卡：這裡多危險、大家遇到什麼、市府處理到哪 */
+  function plainVerdict(L) {
+    var r = L.reports, cats = Object.keys(r.categories).filter(function (c) { return r.categories[c] > 0; }).sort(function (a, b) { return r.categories[b] - r.categories[a]; });
+    var cz = cats[0] && r.causes && r.causes[cats[0]] ? Object.keys(r.causes[cats[0]])[0] : null, t = typesOf(L);
+    var lead = L.quadrant === "priority" ? "近三年事故多（本區前 20%）。" : L.quadrant === "prevent" ? "事故還不多，但很多人覺得危險：可能是還沒出事的危險路口。" : "目前事故和回報都不多。";
+    var acc = t && t.n ? "事故大多是" + (t.kinds["車與車"] >= t.n / 2 ? "車與車" : "人與車") + "，最常牽涉" + VEH_ORDER.slice().sort(function (a, b) { return (t.vehicles[b] || 0) - (t.vehicles[a] || 0); })[0] + "。" : "";
+    return lead + (cats[0] ? "市民最常遇到「" + cats[0] + "」" + (cz ? "（" + cz + "）" : "") + "。" : "") + acc;
+  }
+  function summaryCard(L) {
+    var dead = L.real.a1_recent;
+    var cell = function (v, lbl, badge, cls) { return '<div class="sc' + (cls ? " " + cls : "") + '"><b>' + v + "</b><span>" + lbl + "</span>" + badge + "</div>"; };
+    var real = '<span class="badge real">真實</span>', mock = '<span class="badge mock">示意</span>';
+    return '<div class="sumcard"><div class="sumgrid">' +
+      cell(fmt(L.real.acc_recent), "近三年事故（件）", real) +
+      cell(dead, "死亡事故（件）", real, dead ? "dead" : "") +
+      cell(L.reports.concern, "人回報要注意", mock) +
+      cell(esc(L.improved ? "已改善" : L.stage), "市府處理進度", mock) +
+      '</div><p class="sumtxt">' + esc(plainVerdict(L)) + "</p></div>";
+  }
   function renderProfile(L) {
     var r = L.reports, q = QUAD[L.quadrant], stageIdx = STAGES.indexOf(L.stage);
     var cats = Object.keys(r.categories).filter(function (c) { return r.categories[c] > 0; }).sort(function (a, b) { return r.categories[b] - r.categories[a]; }).slice(0, 5);
@@ -718,6 +754,7 @@
       '<div class="tagsrow"><span class="qtag" style="--qc:var(' + q.v + ');background:var(' + q.v + ')">' + q.name + '</span><span class="stagetag">處理進度：' + L.stage + "</span>" + (L.trend.rising ? '<span class="stagetag risetag">' + RISE_TAG + "最近變多</span>" : "") + "</div>" +
       '<p class="wxline">' + careText(L) + "・" + esc(L.district) + "</p>" +
 
+      summaryCard(L) +
       '<div class="sec"><div class="sec-h"><h3>有多少人也遇過</h3><span class="badge mock">示意</span></div>' +
       '<div class="big"><b class="mono">' + r.concern + '</b><span>人回報這裡要注意' + (r.praise ? "・" + r.praise + " 人說變好了" : "") + "</span></div>" +
       '<div class="crowd" aria-hidden="true">' + crowdHTML(r.users, 40) + "</div>" +
@@ -725,11 +762,10 @@
       '<div class="actions"><button class="btn primary" id="metoo">我也遇過</button><button class="btn" id="better"' + (canPraise(L) ? "" : ' disabled title="市府更新後才開放"') + '>這裡變好了</button></div>' +
       (canPraise(L) ? "" : '<p class="note">市府登錄完工後才能說「這裡變好了」。</p>') + "</div>" +
 
-      '<div class="sec"><div class="sec-h"><h3>最近有沒有變多</h3><span class="badge mock">示意</span></div>' + trendHTML(L) + "</div>" +
-
-      '<div class="sec"><div class="sec-h"><h3>時間線</h3><span class="badge mock">示意</span></div>' + timelineHTML(L) + "</div>" +
-      '<div class="sec" id="repairs"><div class="sec-h"><h3>維修紀錄（' + (L.repairs || []).length + '）</h3><span class="badge mock">示意</span></div>' + repairsHTML(L) + "</div>" +
-
+      '<div class="sec"><div class="sec-h"><h3>處理進度</h3><span class="badge mock">示意</span></div><ol class="steps">' +
+      STAGES.map(function (s, i) { return '<li class="' + (i < stageIdx ? "is-done" : i === stageIdx ? "is-now" : "") + '"><i></i>' + s + "</li>"; }).join("") + "</ol>" +
+      (L.schedule && L.stage === "已排程" ? '<p class="accnote">市府預計 <b>' + L.schedule.replace("-", " 年 ").replace(/ 0(\d)$/, " $1") + " 月</b>完工" + (L.plan ? "，預計怎麼改：<b>" + esc(L.plan) + "</b>" : "") + "。</p>" : "") +
+      "</div>" +
       '<div class="sec"><div class="sec-h"><h3>什麼時候、遇到什麼</h3><span class="badge mock">示意</span></div>' +
       '<div class="twocol"><div>' + K.ring24(r.hours, 128) + '</div><div class="bars">' +
       cats.map(function (c) {
@@ -751,13 +787,18 @@
       '<p class="note">路口 35 公尺內的 A1、A2 事故。來源：桃園市政府開放資料。</p></div>' +
       typesHTML(L) +
 
+      '<div class="sec"><div class="sec-h"><h3>最近有沒有變多</h3><span class="badge mock">示意</span></div>' + trendHTML(L) + "</div>" +
+
       '<div class="sec"><div class="sec-h"><h3>兩邊對照</h3></div><p class="accnote"><b style="color:var(' + q.v + ')">' + q.name + "</b>：" + q.desc + "</p>" + scatterHTML(L.id) + "</div>" +
 
+      ((L.repairs || []).length ? '<div class="sec" id="repairs"><div class="sec-h"><h3>維修紀錄（' + (L.repairs || []).length + '）</h3><span class="badge mock">示意</span></div>' + repairsHTML(L) + "</div>" : "") +
+      '<div class="sec"><div class="sec-h"><h3>市民怎麼說</h3><span class="badge mock">示意</span></div>' +
+      '<div class="tabs" role="tablist"><button role="tab" aria-selected="true" data-t="concern">要注意 ' + concernC.length + '</button><button role="tab" aria-selected="false" data-t="praise">變好了 ' + praiseC.length + "</button></div>" +
+      '<ul class="voices" id="voices"></ul></div>' +
+      '<details class="more"><summary>更多：時間線、市府回覆、怎麼送到市府、誰管這裡</summary>' +
+      '<div class="sec"><div class="sec-h"><h3>時間線</h3><span class="badge mock">示意</span></div>' + timelineHTML(L) + "</div>" +
+      ((L.repairs || []).length ? "" : '<div class="sec" id="repairs"><div class="sec-h"><h3>維修紀錄（' + (L.repairs || []).length + '）</h3><span class="badge mock">示意</span></div>' + repairsHTML(L) + "</div>") +
       (L.decision ? '<div class="sec"><div class="sec-h"><h3>市府回覆</h3><span class="badge mock">示意</span></div><p class="accnote"><b>' + esc(L.decision.title) + "（" + esc(L.decision.date) + "）</b>：" + esc(L.decision.text) + "</p></div>" : "") +
-      '<div class="sec"><div class="sec-h"><h3>處理進度</h3><span class="badge mock">示意</span></div><ol class="steps">' +
-      STAGES.map(function (s, i) { return '<li class="' + (i < stageIdx ? "is-done" : i === stageIdx ? "is-now" : "") + '"><i></i>' + s + "</li>"; }).join("") + "</ol>" +
-      (L.schedule && L.stage === "已排程" ? '<p class="accnote">市府預計 <b>' + L.schedule.replace("-", " 年 ").replace(/ 0(\d)$/, " $1") + " 月</b>完工" + (L.plan ? "，預計怎麼改：<b>" + esc(L.plan) + "</b>" : "") + "。</p>" : "") +
-      "</div>" +
       '<div class="sec"><div class="sec-h"><h3>怎麼送到市府</h3><span class="badge mock">示意</span></div><ul class="routes">' +
       ["district", "fast"].map(function (k) {
         return '<li class="' + (L.route === k ? "on" : "") + '"><b>' + (ROUTE[k].tag ? '<i class="rtb static">' + ROUTE[k].tag + "</i>" : "") + ROUTE[k].name + "</b><span>" + ROUTE[k].desc() + "</span></li>";
@@ -772,9 +813,7 @@
       }).join("") + "</div>" +
       (L.owners.length >= 3 ? '<p class="flag">牽涉 3 個以上單位，建議會勘</p>' : "") + "</div>" +
 
-      '<div class="sec"><div class="sec-h"><h3>市民怎麼說</h3><span class="badge mock">示意</span></div>' +
-      '<div class="tabs" role="tablist"><button role="tab" aria-selected="true" data-t="concern">要注意 ' + concernC.length + '</button><button role="tab" aria-selected="false" data-t="praise">變好了 ' + praiseC.length + "</button></div>" +
-      '<ul class="voices" id="voices"></ul></div>' +
+      '</details>' +
 
       "";
     $("pin").innerHTML = html;
@@ -1055,10 +1094,8 @@
     document.querySelectorAll("#layers button").forEach(function (b) { b.addEventListener("click", function () { setLayer(b.dataset.layer); }); });
     $("report").addEventListener("click", function () { R.open({}); });
     $("near").addEventListener("click", openNearby);
-    var sc = $("scatcard"), st = $("scattoggle");
-    var setScat = function (open) { sc.classList.toggle("closed", !open); st.textContent = open ? "收起" : "散布圖"; st.setAttribute("aria-expanded", open); };
-    setScat(window.innerWidth > 820);
-    st.addEventListener("click", function () { setScat(sc.classList.contains("closed")); });
+    setScat(false);
+    $("scattoggle").addEventListener("click", function () { setScat($("scatcard").classList.contains("closed")); });
     $("phone-x").addEventListener("click", R.close);
     $("handle").addEventListener("click", function () { $("panel").classList.toggle("expanded"); });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !$("phone").hidden) R.close(); });
@@ -1085,6 +1122,6 @@
   window.DemoApp = { state: S, select: select, setLayer: setLayer, report: R, mapStyle: mapStyle,
     util: { canPraise: canPraise, progressLabel: progressLabel, esc: esc, summaryOf: summaryOf, careBadge: careBadge, ownerOf: ownerOf, hasUpdate: hasUpdate, perMonth: perMonth,
             renderMarkers: renderMarkers, renderOverview: renderOverview, refresh: refresh, pulse: pulse, careText: careText,
-            risingOf: risingOf, trendNumbers: trendNumbers, RISE_TAG: RISE_TAG } };
+            risingOf: risingOf, trendNumbers: trendNumbers, RISE_TAG: RISE_TAG, ranks: ranks, setScat: setScat, deadTag: deadTag } };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
