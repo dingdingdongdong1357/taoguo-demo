@@ -1084,7 +1084,8 @@
       cell(dead, "死亡事故（件）", real, dead ? "dead" : "") +
       cell(L.reports.concern, "人回報要注意", mock) +
       cell(esc(L.improved ? "已改善" : L.stage), "市府處理進度", mock) +
-      '</div><p class="sumtxt">' + esc(plainVerdict(L)) + "</p></div>";
+      '</div><p class="sumtxt">' + esc(plainVerdict(L)) + "</p>" +
+      (function () { var c = compareStages(L); return c ? '<p class="sumcmp ' + (c.better ? "good" : "same") + '">改善前每月約 <b>' + c.before + "</b> 人回報 → 改善後 <b>" + c.after + "</b> 人" + (c.better ? "：明顯減少" : "：沒有明顯減少，建議再次現勘") + "</p>" : ""; })() + "</div>";
   }
   function renderProfile(L) {
     var r = L.reports, q = QUAD[L.quadrant], stageIdx = STAGES.indexOf(L.stage);

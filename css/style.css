@@ -614,3 +614,6 @@ table.rules tr.on td{font-weight:700}
 .t-tip .gd.done{background:var(--muted)}
 .t-tip .gd.on{background:var(--ink);border-color:var(--ink);transform:scale(1.25)}
 @media (max-width:820px){.t-tip{max-height:38vh;padding:12px 14px}.t-tip .gbody{font-size:13.5px}.t-flag{top:auto;bottom:8px}}
+
+.sumcmp{margin:0;padding:6px 10px;border-radius:2px;font-size:13px;background:var(--soft)}
+.sumcmp.good{background:color-mix(in srgb,var(--q-calm) 14%,var(--surface))}
