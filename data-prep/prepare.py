@@ -610,6 +610,10 @@ for dist in sorted({L["district"] for L in locations}):
             L["stage"] = "已收到"
 
 (OUT / "locations.json").write_text(json.dumps(locations, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+# every intersection's OSM points (with its demo id, if chosen), so police_types.py snaps accidents the same way
+_lid = {k: f"L{n + 1:02d}" for n, k in enumerate(order)}
+(Path(__file__).resolve().parent / "intersection_pts.json").write_text(json.dumps(
+    [{"id": _lid.get(k), "pts": [[round(x, 7), round(y, 7)] for x, y in d["pts"]]} for k, d in enumerate(inters)], separators=(",", ":")), encoding="utf-8")
 meta = {
     "area": "中壢火車站周邊", "bbox": [WEST, SOUTH, EAST, NORTH], "years": YEARS, "recent": list(RECENT),
     "acc_high_threshold": ACC_HIGH, "report_high_threshold": REPORT_HIGH, "report_some_threshold": REPORT_SOME,

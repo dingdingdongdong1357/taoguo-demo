@@ -470,3 +470,6 @@ body.gov .scatcard{display:none}
   .scatcard{top:58px;bottom:auto;right:14px;width:min(300px,calc(100% - 28px))}
   .scatcard.closed{top:14px;right:56px}
 }
+
+/* 事故類型 */
+.fill.ped{background:#C8102E}

@@ -469,12 +469,13 @@
       '<div class="stat"><b>' + fmt(acc) + '</b><span>近三年事故<br><span class="badge real">真實</span></span></div>' +
       '<div class="stat"><b>' + a1 + '</b><span>死亡事故<br><span class="badge real">真實</span></span></div>' +
       '<div class="stat"><b>' + fmt(rep) + '</b><span>人回報要注意<br><span class="badge mock">示意</span></span></div></div>' +
+      (S.types ? '<p class="accnote">範圍內的事故牽涉到：' + VEH_ORDER.map(function (k) { return k + " <b>" + sum(inR.map(function (x) { var t = typesOf(x.L); return t ? t.vehicles[k] || 0 : 0; })) + "</b> 件"; }).join("、") + "（警政署資料）。</p>" : "") +
       (worst ? '<p class="accnote">附近最多人回報的是 <b>' + esc(worst.L.name) + "</b>（" + worst.L.reports.concern + " 人），最常遇到「" + esc(topCat(worst.L)) + "」。</p>" : "") +
       '<div class="sec"><div class="sec-h"><h3>範圍內的路口（由近到遠）</h3></div>' +
       (inR.length ? '<ol class="board">' + inR.map(function (x) {
         var L = x.L;
         return '<li><button class="brow" data-id="' + L.id + '">' + careBadge(L, 24) + '<span class="nm">' + esc(L.name) +
-          '<br><span class="sub">' + QUAD[L.quadrant].name + "・事故 " + L.real.acc_recent + " 件" + (L.real.a1_recent ? '（<b class="a1t">死亡 ' + L.real.a1_recent + "</b>）" : "") + "・回報 " + L.reports.concern + ' 人</span></span><span class="mono v">' + Math.round(x.d / 10) * 10 + " m</span></button></li>";
+          '<br><span class="sub">' + QUAD[L.quadrant].name + "・事故 " + L.real.acc_recent + " 件" + (L.real.a1_recent ? '（<b class="a1t">死亡 ' + L.real.a1_recent + "</b>）" : "") + (typesOf(L) && typesOf(L).vehicles["行人"] ? "・撞到行人 " + typesOf(L).vehicles["行人"] + " 件" : "") + "・回報 " + L.reports.concern + ' 人</span></span><span class="mono v">' + Math.round(x.d / 10) * 10 + " m</span></button></li>";
       }).join("") + "</ol>" : '<p class="note">這個範圍內沒有 Demo 的路口，試試把範圍放大。</p>') + "</div>" +
       '<p class="note">事故＝路口 35 公尺內的 A1、A2 事故（桃園市政府開放資料）；回報為示意資料。定位只用來畫範圍，不會記錄或上傳。</p>';
     $("pin").innerHTML = html;
@@ -681,6 +682,25 @@
     }).join("") + "</ul>";
   }
 
+  /* 事故類型與車種：警政署逐案資料（data/accident_types.json），和上面的件數是同一套 35 公尺規則 */
+  var VEH_ORDER = ["行人", "機車", "汽車", "自行車", "大型車"];
+  function typesOf(L) { return S.types && S.types.locations[L.id]; }
+  function typesHTML(L) {
+    var t = typesOf(L);
+    if (!t || !t.n) return "";
+    var kinds = ["車與車", "人與車", "車輛本身"].filter(function (k) { return t.kinds[k]; });
+    var vmax = Math.max.apply(null, VEH_ORDER.map(function (k) { return t.vehicles[k] || 0; }).concat([1]));
+    return '<div class="sec"><div class="sec-h"><h3>是什麼樣的事故</h3><span class="badge real">真實資料</span></div>' +
+      '<p class="accnote">近三年 <b>' + t.n + "</b> 件：" + kinds.map(function (k) { return k + " <b>" + t.kinds[k] + "</b> 件"; }).join("、") +
+      (t.deaths ? '，<b class="a1t">死亡 ' + t.deaths + " 人</b>" : "") + "。</p>" +
+      '<p class="b-label">牽涉到誰（一件事故可能同時算到兩種）</p><div class="bars">' +
+      VEH_ORDER.map(function (k) {
+        var v = t.vehicles[k] || 0;
+        return '<div class="bar"><div class="lbl"><span>' + k + '</span><div class="track"><div class="fill' + (k === "行人" ? " ped" : "") + '" style="width:' + Math.round(v / vmax * 100) + '%"></div></div></div><span class="v">' + v + "</span></div>";
+      }).join("") + "</div>" +
+      '<p class="note">撞法前三名：' + Object.keys(t.subs).filter(function (k) { return k !== "其他"; }).slice(0, 3).map(function (k) { return k + " " + t.subs[k]; }).join("、") +
+      "。來源：" + esc(S.types.source) + "。</p></div>";
+  }
   function renderProfile(L) {
     var r = L.reports, q = QUAD[L.quadrant], stageIdx = STAGES.indexOf(L.stage);
     var cats = Object.keys(r.categories).filter(function (c) { return r.categories[c] > 0; }).sort(function (a, b) { return r.categories[b] - r.categories[a]; }).slice(0, 5);
@@ -729,6 +749,7 @@
       (L.real.a1_total ? "，其中死亡事故 <b>" + L.real.a1_total + "</b> 件（近三年 <b>" + L.real.a1_recent + "</b> 件）" : "") + "。" +
       (L.real.level === "high" ? "近三年事故數在本區前 20%。" : "近三年事故數不在本區前 20%。") + "</p>" +
       '<p class="note">路口 35 公尺內的 A1、A2 事故。來源：桃園市政府開放資料。</p></div>' +
+      typesHTML(L) +
 
       '<div class="sec"><div class="sec-h"><h3>兩邊對照</h3></div><p class="accnote"><b style="color:var(' + q.v + ')">' + q.name + "</b>：" + q.desc + "</p>" + scatterHTML(L.id) + "</div>" +
 
@@ -1045,10 +1066,11 @@
     if (mq.addEventListener) mq.addEventListener("change", recolorMap);
     new MutationObserver(recolorMap).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
+    var types = fetch("data/accident_types.json", { cache: "no-cache" }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
     Promise.all(["data/roads.geojson", "data/locations.json", "data/meta.json"].map(function (u) {
       return fetch(u, { cache: "no-cache" }).then(function (r) { if (!r.ok) throw new Error(u + " " + r.status); return r.json(); });
-    })).then(function (res) {
-      S.roads = res[0]; S.locs = res[1]; S.meta = res[2];
+    }).concat([types])).then(function (res) {
+      S.roads = res[0]; S.locs = res[1]; S.meta = res[2]; S.types = res[3];
       S.locs.forEach(function (L) { S.byId[L.id] = L; });
       renderOverview();
       autoReport();
