@@ -617,3 +617,5 @@ table.rules tr.on td{font-weight:700}
 
 .sumcmp{margin:0;padding:6px 10px;border-radius:2px;font-size:13px;background:var(--soft)}
 .sumcmp.good{background:color-mix(in srgb,var(--q-calm) 14%,var(--surface))}
+.dangertop .brow{grid-template-columns:minmax(0,1fr) auto}
+.brow .nm small,.brow .nm .sub{display:block;white-space:normal}
