@@ -619,3 +619,16 @@ table.rules tr.on td{font-weight:700}
 .sumcmp.good{background:color-mix(in srgb,var(--q-calm) 14%,var(--surface))}
 .dangertop .brow{grid-template-columns:minmax(0,1fr) auto}
 .brow .nm small,.brow .nm .sub{display:block;white-space:normal}
+
+/* 第一次來的提醒 */
+.nudge{position:fixed;top:64px;right:16px;z-index:55;width:min(340px,calc(100vw - 32px));display:flex;flex-direction:column;gap:8px;padding:14px 16px;background:var(--surface);color:var(--ink);border:1.5px solid var(--ink);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.22);animation:nudgein .35s ease}
+.nudge::before{content:"";position:absolute;top:-8px;left:var(--ax,280px);width:14px;height:14px;background:var(--surface);border-left:1.5px solid var(--ink);border-top:1.5px solid var(--ink);transform:rotate(45deg)}
+.nudge p{margin:0;font-size:14px;line-height:1.6}
+.nudge-t{font-weight:700;font-size:16px!important}
+.nudge-c{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer}
+.nudge-a{display:flex;justify-content:flex-end;gap:8px}
+.nudge-a .btn{padding:6px 12px;font-size:13px}
+@keyframes nudgein{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.qmark.pulse-q{animation:qpulse 1.3s ease-in-out infinite}
+@keyframes qpulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent)}50%{box-shadow:0 0 0 8px color-mix(in srgb,var(--accent) 0%,transparent)}}
+@media (max-width:480px){.nudge{top:58px}}

@@ -1449,6 +1449,29 @@
     });
   }
 
+  /* 第一次來：右上角跳出提醒，建議先按 ? 跟著練習導覽；勾「之後不用再提醒」就記住 */
+  var NUDGE_KEY = "taoguo-tour-nudge-off";
+  function nudgeOff() { try { return window.localStorage.getItem(NUDGE_KEY) === "1"; } catch (e) { return false; } }
+  function showNudge() {
+    if (nudgeOff() || navigator.webdriver || location.hash || /[?&]report=1(&|$)/.test(location.search) || $("nudge")) return;
+    var el = document.createElement("div");
+    el.id = "nudge"; el.className = "nudge"; el.setAttribute("role", "dialog"); el.setAttribute("aria-labelledby", "nudge-t");
+    el.innerHTML = '<p class="nudge-t" id="nudge-t">第一次來嗎？👋</p>' +
+      '<p>按右上角的 <b class="qmark inline" aria-hidden="true">?</b>，跟著光圈自己點一遍，大約 2 分鐘就會用。練習不會真的送出。</p>' +
+      '<label class="nudge-c"><input type="checkbox" id="nudge-off"> 之後不用再提醒我</label>' +
+      '<div class="nudge-a"><button type="button" class="btn" id="nudge-no">我先自己逛逛</button><button type="button" class="btn primary" id="nudge-go">開始練習導覽</button></div>';
+    document.body.appendChild(el);
+    $("help").classList.add("pulse-q");
+    var hr = $("help").getBoundingClientRect(), nb = el.getBoundingClientRect();
+    el.style.setProperty("--ax", Math.max(12, Math.min(nb.width - 26, hr.left + hr.width / 2 - nb.left - 7)) + "px");
+    var close = function () {
+      try { if ($("nudge-off").checked) window.localStorage.setItem(NUDGE_KEY, "1"); } catch (e) {}
+      el.remove(); $("help").classList.remove("pulse-q");
+    };
+    $("nudge-no").addEventListener("click", close);
+    $("nudge-go").addEventListener("click", function () { close(); openGuide(0); });
+    $("help").addEventListener("click", close, { once: true });
+  }
   /* ---------------- boot ---------------- */
   function boot() {
     $("brand").insertAdjacentHTML("afterbegin", K.brand());
@@ -1477,6 +1500,7 @@
       S.locs.forEach(function (L) { S.byId[L.id] = L; });
       renderOverview();
       autoReport();
+      setTimeout(showNudge, 900);
       setTimeout(autoReport, 1500);
       if (!window.maplibregl) throw new Error("地圖元件沒有載入");
       initMap();
