@@ -101,6 +101,7 @@
     return (y + Math.floor(m / 12)) + "/" + String(m % 12 + 1).padStart(2, "0");
   }
   var STAGE_ICON = { "現勘中": "🔍", "已排程": "🚧", "改善中": "🚧" };
+  function deadTag(L) { var n = L.real.a1_recent; return n ? '<i class="a1b" title="近三年死亡事故 ' + n + ' 件">亡 ' + n + "</i>" : ""; }
   var RISE_TAG = '<i class="rsb" aria-hidden="true">↑</i>';
   /* Monthly reports in the current stage; the last months are highlighted. */
   function trendHTML(L) {
@@ -190,7 +191,7 @@
     var lons = S.locs.map(function (L) { return L.lon; }), lats = S.locs.map(function (L) { return L.lat; });
     var narrow = window.innerWidth <= 820;
     S.map.fitBounds([[Math.min.apply(null, lons), Math.min.apply(null, lats)], [Math.max.apply(null, lons), Math.max.apply(null, lats)]], {
-      padding: narrow ? { top: 110, bottom: window.innerHeight * 0.44 + 30, left: 30, right: 30 } : { top: 110, bottom: 90, left: 40, right: 70 },
+      padding: narrow ? { top: 110, bottom: window.innerHeight * 0.44 + 30, left: 30, right: 30 } : { top: 110, bottom: 90, left: 40, right: $("scatcard") && !$("scatcard").classList.contains("closed") ? 320 : 70 },
       duration: animate ? 600 : 0, maxZoom: 15.5
     });
   }
@@ -256,28 +257,28 @@
       var el = S.markers[L.id].el, sel =S.sel === L.id ? " sel" : "", size, html, cls, label;
       if (S.layer === "accidents") {
         var a = L.real.acc_recent;
-        size = Math.round((22 + Math.sqrt(a) * 2.8) * zf);
+        size = Math.round((16 + Math.sqrt(a) * 4.6) * zf);
         cls = "mk acc" + (L.real.level === "high" ? "" : " low");
-        html = String(a) + (L.real.a1_recent ? '<i class="a1b" title="近三年有死亡事故">亡</i>' : "");
+        html = String(a) + deadTag(L);
         label = L.name + "，近三年事故 " + a + " 件" + (L.real.a1_recent ? "，其中死亡事故 " + L.real.a1_recent + " 件" : "") + "（真實資料）";
       } else if (S.layer === "compare") {
         var q = QUAD[L.quadrant];
         size = 26;
         cls = "mk quad";
-        html = q.short + (L.real.a1_recent ? '<i class="a1b" title="近三年有死亡事故">亡</i>' : "");
+        html = q.short + deadTag(L);
         el.style.background = "var(" + q.v + ")";
         el.style.borderColor = "var(--surface)";
         label = L.name + "：" + q.name;
       } else {
         var v = L.reports.concern;
-        size = Math.round((30 + Math.min(Math.sqrt(v) * 3.2, 30)) * zf);
+        size = Math.round((24 + Math.sqrt(v) * 5.5) * zf);
         cls = "mk care-" + L.care + (L.improved ? " improved" : "");
         html = '<span class="n">' + (L.improved ? "✓" : v) + "</span>" +
           (ROUTE[L.route] && ROUTE[L.route].tag ? '<i class="rtb">' + ROUTE[L.route].tag + "</i>" : "") +
           (L.trend.rising ? RISE_TAG : "") +
           (myReport(L.id) ? '<i class="mineb" title="你回報過">我</i>' : "") +
-          (STAGE_ICON[L.stage] && !L.improved ? '<i class="stb" title="' + L.stage + '">' + STAGE_ICON[L.stage] + "</i>" : "");
-        label = L.name + "，回報 " + v + " 人（示意資料），" + careText(L) + (L.trend.rising ? "，最近變多" : "");
+          (STAGE_ICON[L.stage] && !L.improved ? '<i class="stb" title="' + L.stage + '">' + STAGE_ICON[L.stage] + "</i>" : "") + deadTag(L);
+        label = L.name + "，回報 " + v + " 人（示意資料），" + careText(L) + (L.trend.rising ? "，最近變多" : "") + (L.real.a1_recent ? "，近三年死亡事故 " + L.real.a1_recent + " 件" : "");
       }
       if (S.layer !== "compare") { el.style.background = ""; el.style.borderColor = ""; }
       el.className = cls + sel;
@@ -289,6 +290,7 @@
       el.title = L.name;
     });
     renderLegend();
+    renderScatterCard();
   }
   function pulse(id) {
     var el = S.markers[id] && S.markers[id].el;
@@ -302,15 +304,15 @@
     var h;
     if (S.layer === "accidents") {
       h = '<div class="row"><span class="li"><span class="badge real">真實資料</span></span>數字＝近三年（' + S.meta.recent.join("–") + "）路口 35 公尺內事故件數</div>" +
-        '<div class="row"><span class="li"><i style="width:12px;height:12px;border-radius:50%;background:var(--ink);display:inline-block"></i>本區前 20%（≥ ' + S.meta.acc_high_threshold + ' 件）</span><span class="li"><i style="width:12px;height:12px;border-radius:50%;border:2px solid var(--ink);display:inline-block"></i>其他</span><span class="li"><i class="a1b static">亡</i>近三年有死亡事故（A1）</span></div>';
+        '<div class="row"><span class="li"><i style="width:12px;height:12px;border-radius:50%;background:var(--ink);display:inline-block"></i>本區前 20%（≥ ' + S.meta.acc_high_threshold + ' 件）</span><span class="li"><i style="width:12px;height:12px;border-radius:50%;border:2px solid var(--ink);display:inline-block"></i>其他</span><span class="li"><i class="a1b static">亡 1</i>近三年死亡事故件數（A1）</span></div>';
     } else if (S.layer === "compare") {
       h = '<div class="row">' + Object.keys(QUAD).map(function (k) {
         return '<span class="li"><i style="width:12px;height:12px;background:var(' + QUAD[k].v + ');display:inline-block;border-radius:2px"></i>' + QUAD[k].name + "</span>";
-      }).join("") + '<span class="li"><i class="a1b static">亡</i>有死亡事故</span></div><div class="row">事故（真實）× 回報（示意）</div>';
+      }).join("") + '<span class="li"><i class="a1b static">亡 1</i>死亡事故件數</span></div><div class="row">事故（真實）× 回報（示意）</div>';
     } else {
       var sw = function (c, t, txt) { return '<span class="li"><span class="cb care-' + c + '" style="width:18px;height:18px;font-size:10px">' + t + "</span>" + txt + "</span>"; };
       h = '<div class="row">' + sw("many", "", "很多人關心") + sw("some", "", "有人關心") + sw("few", "", "回報還少") + sw("few improved", "✓", "變好了") + "</div>" +
-        '<div class="row"><span class="li"><i class="rtb static">急</i>急件</span><span class="li"><i class="rsb static">↑</i>最近變多</span><span class="li"><i class="mineb static">我</i>我回報過</span><span class="li">🔍 現勘中</span><span class="li">🚧 施工中</span><span class="li"><span class="badge mock">示意資料</span></span>數字＝回報人數</div>';
+        '<div class="row"><span class="li"><i class="rtb static">急</i>急件</span><span class="li"><i class="rsb static">↑</i>最近變多</span><span class="li"><i class="mineb static">我</i>我回報過</span><span class="li">🔍 現勘中</span><span class="li">🚧 施工中</span><span class="li"><i class="a1b static">亡 1</i>死亡事故（真實）</span><span class="li"><span class="badge mock">示意資料</span></span>數字＝回報人數</div>';
     }
     $("legend").innerHTML = h;
   }
@@ -329,7 +331,7 @@
     return out;
   }
   var GAP = 30;  // more than 30 rank points off the diagonal counts as "the two disagree"
-  function scatterHTML(selId) {
+  function scatterSVG(selId) {
     var R0 = ranks(), W = 320, H = 268, l = 34, t = 12, w = W - l - 12, h = H - t - 40;
     var X = function (v) { return l + (4 + v * 0.92) / 100 * w; }, Y = function (v) { return t + h - (4 + v * 0.92) / 100 * h; };
     var diag = function (d) {  // the line y = x + d, clipped to the box
@@ -337,15 +339,15 @@
       return "M" + X(x0) + " " + Y(x0 + d) + "L" + X(x1) + " " + Y(x1 + d);
     };
     var dots = S.locs.slice().sort(function (a, b) { return (a.id === selId) - (b.id === selId); }).map(function (L) {
-      var p = R0[L.id], on = L.id === selId;
+      var p = R0[L.id], on = L.id === selId, dead = L.real.a1_recent > 0;
       return '<g class="sdot' + (on ? " on" : "") + '" data-id="' + L.id + '" tabindex="0" role="button" aria-label="' + esc(L.name) + "：事故排名 " + p.x + "、回報排名 " + p.y + '">' +
-        "<title>" + esc(L.name) + "｜事故 " + L.real.acc_recent + " 件・回報 " + L.reports.concern + " 人</title>" +
-        (on ? '<circle cx="' + X(p.x) + '" cy="' + Y(p.y) + '" r="11" fill="none" stroke="var(--ink)" stroke-width="2"/>' : "") +
-        '<circle cx="' + X(p.x) + '" cy="' + Y(p.y) + '" r="' + (on ? 7 : 5.5) + '" fill="var(' + QUAD[L.quadrant].v + ')" stroke="var(--surface)" stroke-width="1.5"/>' +
-        (L.real.a1_recent ? '<circle cx="' + X(p.x) + '" cy="' + Y(p.y) + '" r="2" fill="var(--surface)" pointer-events="none"/>' : "") + "</g>";
+        "<title>" + esc(L.name) + "｜事故 " + L.real.acc_recent + " 件" + (dead ? "（死亡 " + L.real.a1_recent + " 件）" : "") + "・回報 " + L.reports.concern + " 人</title>" +
+        (on ? '<circle cx="' + X(p.x) + '" cy="' + Y(p.y) + '" r="12" fill="none" stroke="var(--ink)" stroke-width="2.5"/>' : "") +
+        '<circle cx="' + X(p.x) + '" cy="' + Y(p.y) + '" r="' + (on ? 7.5 : 6) + '" fill="var(' + QUAD[L.quadrant].v + ')" stroke="' + (dead ? "#D64541" : "var(--surface)") + '" stroke-width="' + (dead ? 2.5 : 1.5) + '"/>' +
+        "</g>";
     }).join("");
     var ang = (Math.atan(h / w) * 180 / Math.PI).toFixed(1);
-    var svg = '<svg class="scatter" viewBox="0 0 ' + W + " " + H + '" role="group" aria-label="散布圖：橫軸事故排名，縱軸回報排名">' +
+    return '<svg class="scatter" viewBox="0 0 ' + W + " " + H + '" role="group" aria-label="散布圖：橫軸事故排名，縱軸回報排名">' +
       '<path d="M' + X(0) + " " + Y(GAP) + "L" + X(100 - GAP) + " " + Y(100) + "L" + X(0) + " " + Y(100) + 'Z" fill="var(--q-prevent)" opacity=".12"/>' +
       '<path d="M' + X(GAP) + " " + Y(0) + "L" + X(100) + " " + Y(100 - GAP) + "L" + X(100) + " " + Y(0) + 'Z" fill="var(--q-priority)" opacity=".12"/>' +
       '<rect x="' + l + '" y="' + t + '" width="' + w + '" height="' + h + '" fill="none" stroke="var(--line)"/>' +
@@ -357,21 +359,35 @@
       '<text x="' + (l + w / 2) + '" y="' + (H - 8) + '" class="sa" text-anchor="middle">事故排名 →（真實）</text>' +
       '<text x="12" y="' + (t + h / 2) + '" class="sa" text-anchor="middle" transform="rotate(-90 12 ' + (t + h / 2) + ')">回報排名 →（示意）</text>' +
       dots + "</svg>";
+  }
+  /* The one shared scatter: always on the map, every intersection is a dot, the selected one is circled. */
+  function renderScatterCard() {
+    var body = $("scatbody");
+    if (!body || !S.locs.length) return;
+    var L = S.sel && S.byId[S.sel], note;
+    if (L) {
+      var p = ranks()[L.id], d = p.y - p.x;
+      note = "<b>" + esc(L.name) + "</b>：事故排第 " + p.x + "、回報排第 " + p.y + "。" +
+        (d > GAP ? "回報明顯比事故多，市民先感覺到危險。" : d < -GAP ? "事故明顯比回報多，要問為什麼沒人回報。" : "兩邊差不多一致。");
+    } else note = "每個點是一個路口，兩軸是排名（0＝最少，100＝最多）。兩邊一致就落在斜線上，離斜線越遠落差越大；紅框＝有死亡事故。點一下看路口。";
+    body.innerHTML = scatterSVG(S.sel) + '<p class="scatnote">' + note + "</p>";
+    bindScatter(body);
+  }
+  function scatterHTML(selId) {
     if (selId) {
-      var p = R0[selId], d = p.y - p.x;
-      return '<div class="scatwrap">' + svg + '<p class="note">這個路口：事故排第 <b>' + p.x + "</b>、回報排第 <b>" + p.y + "</b>（0＝最少，100＝最多）。" +
-        (d > GAP ? "回報明顯比事故多：市民先感覺到危險。" : d < -GAP ? "事故明顯比回報多：要問為什麼沒人回報（例如車多但少人走路）。" : "兩邊差不多一致。") + "</p></div>";
+      var p = ranks()[selId], d = p.y - p.x;
+      return '<p class="note">散布圖（地圖右上角）：事故排第 <b>' + p.x + "</b>、回報排第 <b>" + p.y + "</b>（0＝最少，100＝最多）。" +
+        (d > GAP ? "回報明顯比事故多：市民先感覺到危險。" : d < -GAP ? "事故明顯比回報多：要問為什麼沒人回報（例如車多但少人走路）。" : "兩邊差不多一致。") + "</p>";
     }
-    var gaps = S.locs.map(function (L) { return { L: L, d: R0[L.id].y - R0[L.id].x }; });
+    var R0 = ranks(), gaps = S.locs.map(function (L) { return { L: L, d: R0[L.id].y - R0[L.id].x }; });
     var list = function (arr, txt) {
       return arr.length ? '<p class="b-label">' + txt + '</p><ol class="board">' + arr.slice(0, 3).map(function (g) {
         return '<li><button class="brow" data-id="' + g.L.id + '">' + careBadge(g.L, 24) + '<span class="nm">' + esc(g.L.name) + '</span><span class="mono v">差 ' + Math.abs(g.d) + "</span></button></li>";
       }).join("") + "</ol>" : "";
     };
-    return '<div class="scatwrap"><p class="b-label">散布圖：事故和回報一致嗎？</p>' + svg +
-      '<p class="note">每個點是一個路口，兩軸都是在 Demo 範圍的排名（0＝最少，100＝最多）。兩邊一致就落在斜線上；離斜線越遠，落差越大。點一下會在地圖上找到它；中間有白點的是有死亡事故的路口。</p>' +
-      list(gaps.filter(function (g) { return g.d > GAP; }).sort(function (a, b) { return b.d - a.d; }), "回報多、事故少（落差最大）") +
-      list(gaps.filter(function (g) { return g.d < -GAP; }).sort(function (a, b) { return a.d - b.d; }), "事故多、回報少（落差最大）") + "</div>";
+    return '<div class="scatwrap"><p class="note">地圖右上角的<b>散布圖</b>把所有路口放在一起比：事故和回報一致的落在斜線上。落差最大的是：</p>' +
+      list(gaps.filter(function (g) { return g.d > GAP; }).sort(function (a, b) { return b.d - a.d; }), "回報多、事故少") +
+      list(gaps.filter(function (g) { return g.d < -GAP; }).sort(function (a, b) { return a.d - b.d; }), "事故多、回報少") + "</div>";
   }
   function bindScatter(root) {
     root.querySelectorAll(".sdot").forEach(function (g) {
@@ -1018,6 +1034,10 @@
     document.querySelectorAll("#layers button").forEach(function (b) { b.addEventListener("click", function () { setLayer(b.dataset.layer); }); });
     $("report").addEventListener("click", function () { R.open({}); });
     $("near").addEventListener("click", openNearby);
+    var sc = $("scatcard"), st = $("scattoggle");
+    var setScat = function (open) { sc.classList.toggle("closed", !open); st.textContent = open ? "收起" : "散布圖"; st.setAttribute("aria-expanded", open); };
+    setScat(window.innerWidth > 820);
+    st.addEventListener("click", function () { setScat(sc.classList.contains("closed")); });
     $("phone-x").addEventListener("click", R.close);
     $("handle").addEventListener("click", function () { $("panel").classList.toggle("expanded"); });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !$("phone").hidden) R.close(); });
