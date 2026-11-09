@@ -159,6 +159,7 @@
       (adjusted.length ? '<div class="sec"><div class="sec-h"><h3>本月調整紀錄（' + adjusted.length + '）</h3></div><p class="note">AI 建議和承辦決定不同時會留下紀錄，方便主管查核，也用來改進 AI 的建議。</p>' + adjusted.map(function (x) {
         return '<p class="accnote"><b>' + U.esc(x.name) + "</b>：" + U.esc(x.text) + "<small>　" + x.date + "</small></p>";
       }).join("") + "</div>" : "") +
+      doneSec() +
       (replied.length ? '<div class="sec"><div class="sec-h"><h3>本月已回覆（' + replied.length + "）</h3></div>" + replied.map(function (x) {
         return '<p class="accnote"><b>' + U.esc(x.name) + "</b>：" + U.esc(x.text) + "</p>";
       }).join("") + "</div>" : "") +
@@ -172,8 +173,9 @@
     $("pin").querySelectorAll("[data-go]").forEach(function (b) {
       b.addEventListener("click", function () {
         var L = S.byId[b.dataset.go];
-        S.map.easeTo({ center: [L.lon, L.lat], zoom: Math.max(S.map.getZoom(), 15.6), duration: 600 });
+        if (S.map) S.map.easeTo({ center: [L.lon, L.lat], zoom: Math.max(S.map.getZoom(), 15.6), duration: 600 });
         U.pulse(L.id);
+        if (!$("case-" + L.id)) quickCard(L);
       });
     });
     $("pin").querySelectorAll("[data-act]").forEach(function (b) { b.addEventListener("click", function () { act(b.dataset.act, S.byId[b.dataset.id]); }); });
@@ -228,6 +230,38 @@
     };
   }
 
+  /* 完工建議：依施工單位列出這個路口回報裡、該單位負責的原因 */
+  var FIX_VERB = { "台電": "遷移", "警察局": "加強取締", "區公所": "移除", "管線單位": "修補" };
+  function fixChips(L, target, unit) {
+    var r = L.reports, out = [];
+    Object.keys(r.causes || {}).forEach(function (c) {
+      Object.keys(r.causes[c]).forEach(function (k) {
+        var o = U.ownerOf(c, k);
+        if (!unit || o === unit) out.push({ k: k, n: r.causes[c][k], o: o });
+      });
+    });
+    out.sort(function (a, b) { return b.n - a.n; });
+    out = out.slice(0, 4);
+    if (!out.length) return '<p class="note">' + (unit ? U.esc(unit) + " 在這個路口沒有對應的回報原因，請確認施工單位。" : "") + "</p>";
+    return '<div class="chips">' + out.map(function (x) {
+      var v = (FIX_VERB[x.o] || "改善") + "：" + x.k;
+      return '<button type="button" class="chip" data-fill="' + target + L.id + '" data-v="' + U.esc(v) + '">' + U.esc(v) + "（" + x.n + " 人）</button>";
+    }).join("") + "</div>";
+  }
+  function bindChips(root) {
+    root.querySelectorAll(".chip").forEach(function (b) {
+      b.addEventListener("click", function () { var i = $(b.dataset.fill); i.value = i.value ? i.value + "、" + b.dataset.v : b.dataset.v; i.focus(); });
+    });
+  }
+  function doneSec() {
+    var list = S.locs.filter(function (L) { return L.doneMonth; });
+    if (!list.length) return "";
+    return '<div class="sec"><div class="sec-h"><h3>✓ 本月已完工（' + list.length + "）</h3></div><p class=\"note\">完工的路口留在這裡，點名稱可以回到地圖上看；1 個月後會回診，市民說沒變就退回。</p>" +
+      list.map(function (L) {
+        return '<p class="done-row"><button class="case-name" data-go="' + L.id + '">' + U.esc(L.name) + "</button>　" + U.esc(L.doneMonth.date) + "・" + U.esc(L.doneMonth.text) + "（" + U.esc(L.doneMonth.unit) + "）</p>";
+      }).join("") + "</div>";
+  }
+
   function setProgress(L, stage) {
     var area = $("area-" + L.id);
     if (stage !== "已排程") {
@@ -235,14 +269,16 @@
       replied.push({ name: L.name, text: "處理進度更新為「" + stage + "」，市民端同步顯示。" });
       U.renderMarkers(); render(); focusCard(L.id); return;
     }
-    area.innerHTML = '<form class="gform" novalidate><label for="s-ym-' + L.id + '">預計完工月份（市民會看到）</label><input id="s-ym-' + L.id + '" type="month">' +
+    area.innerHTML = '<form class="gform" novalidate><label for="s-plan-' + L.id + '">預計怎麼改（市民會看到）</label>' + fixChips(L, "s-plan-") + '<input id="s-plan-' + L.id + '" placeholder="例：遷移轉角變電箱">' +
+      '<label for="s-ym-' + L.id + '">預計完工月份（市民會看到）</label><input id="s-ym-' + L.id + '" type="month">' +
       '<p class="gerr" hidden>請填預計完工月份，市民才知道大概要等多久。</p><button class="btn small primary" type="submit">更新為已排程</button></form>';
+    bindChips(area);
     area.querySelector("form").addEventListener("submit", function (e) {
       e.preventDefault();
       var ym = $("s-ym-" + L.id).value;
       if (!/^\d{4}-\d{2}$/.test(ym)) { area.querySelector(".gerr").hidden = false; return; }
-      L.stage = "已排程"; L.schedule = ym;
-      replied.push({ name: L.name, text: "已排程，預計 " + ym.replace("-", " 年 ") + " 月完工。曾回報的市民會收到 LINE 通知。" });
+      L.stage = "已排程"; L.schedule = ym; L.plan = $("s-plan-" + L.id).value.trim() || null;
+      replied.push({ name: L.name, text: "已排程，預計 " + ym.replace("-", " 年 ") + " 月完工" + (L.plan ? "（" + L.plan + "）" : "") + "。曾回報的市民會收到 LINE 通知，地圖上會標 🚧。" });
       U.renderMarkers(); render(); focusCard(L.id);
     });
   }
@@ -280,10 +316,12 @@
       logAdjust(L, "改派主責給「" + to2 + "」"); L.returned = null;
       render(); focusCard(L.id); return;
     }
+    if (kind === "schedule-chips") return;
     if (kind === "done") {
-      area.innerHTML = '<form class="gform" novalidate><label for="c-text-' + L.id + '">修了什麼（市民會看到）</label>' +
-        '<input id="c-text-' + L.id + '" placeholder="例：重劃待轉區、補繪斑馬線">' +
+      area.innerHTML = '<form class="gform" novalidate>' +
         '<label for="c-unit-' + L.id + '">施工單位</label><select id="c-unit-' + L.id + '">' + L.owners.map(function (o) { return "<option" + (o === leadOf(L) ? " selected" : "") + ">" + U.esc(o) + "</option>"; }).join("") + "</select>" +
+        '<label for="c-text-' + L.id + '">修了什麼（市民會看到）</label><div id="c-chips-' + L.id + '">' + fixChips(L, "c-text-", leadOf(L)) + '</div>' +
+        '<input id="c-text-' + L.id + '" placeholder="點上面的建議，或自己寫">' +
         solvesHTML(L, "cs-") +
         '<label class="major"><input type="checkbox" id="c-major-' + L.id + '"> 這是重大改善，要重新比較改善前後的回報數</label>' +
         '<p class="note">不論是否勾選，都會寫入維修紀錄、通知曾回報的市民、開放「這裡變好了」，並在 1 個月後回診。勾選後時間線會從今天切出新階段（例如重劃待轉區）；補繪標線、修剪樹木這類小修不用勾。</p>' +
@@ -296,10 +334,13 @@
         if ($("c-major-" + L.id).checked) { publishUpdate(L, text, unit, solves); return; }
         L.repairs = L.repairs || [];
         L.repairs.push({ kind: "minor", date: today().date, unit: unit, items: itemsOf(text), solves: solves });
-        L.stage = "已改善"; L.route = "none"; L.route_reason = ""; L.schedule = null;
+        L.stage = "已改善"; L.route = "none"; L.route_reason = ""; L.schedule = null; L.plan = null;
+        L.doneMonth = { date: today().date.replace(/-/g, "/"), text: text, unit: unit };
         replied.push({ name: L.name, text: "登錄完工：" + text + "（" + unit + "）。曾回報的市民會收到通知，可以說「這裡變好了」，1 個月後回診。" });
         U.renderMarkers(); render();
       });
+      $("c-unit-" + L.id).addEventListener("change", function () { $("c-chips-" + L.id).innerHTML = fixChips(L, "c-text-", this.value); bindChips(area); });
+      bindChips(area);
       $("c-text-" + L.id).focus();
       return;
     }
@@ -361,7 +402,8 @@
     Object.keys(r.users).forEach(function (k) { r.users[k] = 0; });
     Object.keys(r.severity).forEach(function (k) { r.severity[k] = 0; });
     r.hours = r.hours.map(function () { return 0; });
-    L.stage = "已改善"; L.route = "none"; L.route_reason = "";
+    L.stage = "已改善"; L.route = "none"; L.route_reason = ""; L.plan = null;
+    L.doneMonth = { date: t.date.replace(/-/g, "/"), text: text, unit: unit };
     U.refresh(L);
     replied.push({ name: L.name, text: "登錄完工（重大改善，開新階段）：" + text + "（" + unit + "）。曾回報的市民會收到通知，可以說「這裡變好了」，1 個月後回診。" });
     U.renderMarkers(); render(); U.pulse(L.id);

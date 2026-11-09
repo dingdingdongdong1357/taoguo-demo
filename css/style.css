@@ -131,7 +131,7 @@ body.gov .head{background:var(--ink);color:var(--bg)}
 body.gov .brand-sub{color:color-mix(in srgb,var(--bg) 70%,transparent)}
 body.gov .viewseg{border-color:var(--bg);background:transparent}
 body.gov .viewseg button{color:var(--bg)}
-body.gov .viewseg button[aria-pressed="true"]{background:var(--marking);color:#1F2427}
+body.gov .viewseg button[aria-pressed="true"]{background:#F4B4A6;color:#1F2427;font-weight:700}
 body.gov #report{display:none}
 .case{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:2px;background:var(--surface);scroll-margin-top:12px}
 .case + .case{margin-top:8px}
@@ -420,3 +420,14 @@ body.gov #report{display:none}
 .qtag.rise{background:rgba(214,69,65,.12)}
 .qtag.ok{background:rgba(63,122,94,.15)}
 .btn.ghost{background:transparent;border:1px solid currentColor}
+
+/* 市民端／市府端：選中的那一端用顏色標出，市府端頁首多一個「承辦模式」 */
+.viewseg button[aria-pressed="true"]{background:#E8735F;color:#fff;font-weight:700}
+body.gov .brand-sub::after{content:"・承辦模式（示意）";color:#F4B4A6;font-weight:700}
+/* 處理狀態小圖示 */
+.stb{position:absolute;right:-9px;bottom:-9px;font-size:15px;font-style:normal;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+.minenote.warn{background:rgba(232,180,60,.18)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px}
+.chip{border:1px solid var(--line,#ccc);background:var(--surface,#fff);border-radius:999px;padding:4px 10px;font-size:13px;cursor:pointer}
+.chip:hover{border-color:var(--ink)}
+.done-row{margin:6px 0;font-size:14px}

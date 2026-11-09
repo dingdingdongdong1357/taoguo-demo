@@ -101,6 +101,7 @@
     var y = +ym.slice(0, 4), m = +ym.slice(5) - 1 + k;
     return (y + Math.floor(m / 12)) + "/" + String(m % 12 + 1).padStart(2, "0");
   }
+  var STAGE_ICON = { "現勘中": "🔍", "已排程": "🚧", "改善中": "🚧" };
   var RISE_TAG = '<i class="rsb" aria-hidden="true">↑</i>';
   /* Monthly reports in the current stage; the last months are highlighted. */
   function trendHTML(L) {
@@ -275,7 +276,8 @@
         html = '<span class="n">' + (L.improved ? "✓" : v) + "</span>" +
           (ROUTE[L.route] && ROUTE[L.route].tag ? '<i class="rtb">' + ROUTE[L.route].tag + "</i>" : "") +
           (L.trend.rising ? RISE_TAG : "") +
-          (myReport(L.id) ? '<i class="mineb" title="你回報過">我</i>' : "");
+          (myReport(L.id) ? '<i class="mineb" title="你回報過">我</i>' : "") +
+          (STAGE_ICON[L.stage] && !L.improved ? '<i class="stb" title="' + L.stage + '">' + STAGE_ICON[L.stage] + "</i>" : "");
         label = L.name + "，回報 " + v + " 人（示意資料），" + careText(L) + (L.trend.rising ? "，最近變多" : "");
       }
       if (S.layer !== "compare") { el.style.background = ""; el.style.borderColor = ""; }
@@ -309,7 +311,7 @@
     } else {
       var sw = function (c, t, txt) { return '<span class="li"><span class="cb care-' + c + '" style="width:18px;height:18px;font-size:10px">' + t + "</span>" + txt + "</span>"; };
       h = '<div class="row">' + sw("many", "", "很多人關心") + sw("some", "", "有人關心") + sw("few", "", "回報還少") + sw("few improved", "✓", "變好了") + "</div>" +
-        '<div class="row"><span class="li"><i class="rtb static">快</i>快速通道</span><span class="li"><i class="rsb static">↑</i>最近變多</span><span class="li"><i class="mineb static">我</i>我回報過</span><span class="li"><span class="badge mock">示意資料</span></span>數字＝回報人數</div>';
+        '<div class="row"><span class="li"><i class="rtb static">快</i>快速通道</span><span class="li"><i class="rsb static">↑</i>最近變多</span><span class="li"><i class="mineb static">我</i>我回報過</span><span class="li">🔍 現勘中</span><span class="li">🚧 施工中</span><span class="li"><span class="badge mock">示意資料</span></span>數字＝回報人數</div>';
     }
     $("legend").innerHTML = h;
   }
@@ -519,6 +521,8 @@
     var accSum = sum(L.real.acc_by_year);
     var html =
       '<button class="back" id="back">← 回到全部路口</button>' +
+      (L.deferred && L.route === "next" ? '<p class="minenote warn">⏳ 承辦已排到<b>下個月</b>處理：' + esc(L.deferred.reason) + "。名額保留，下個月優先。</p>" : "") +
+      (STAGE_ICON[L.stage] && !L.improved ? '<p class="minenote">' + STAGE_ICON[L.stage] + " 目前進度：<b>" + esc(progressLabel(L)) + "</b>" + (L.plan ? "・預計怎麼改：" + esc(L.plan) : "") + "</p>" : "") +
       (myReport(L.id) ? '<p class="minenote"><i class="mineb static">我</i>你在 ' + mmdd(myReport(L.id).date) + " 回報過這裡：" + esc(myLine(myReport(L.id))) + "。目前進度：" + esc(progressLabel(L)) + "</p>" : "") +
       '<div class="titlerow"><div class="wx">' + careBadge(L, 52) + '</div><div><p class="eyebrow">路口小檔案</p><h1 class="ptitle">' + esc(L.name) + '</h1></div></div>' +
       '<div class="tagsrow"><span class="qtag" style="--qc:var(' + q.v + ');background:var(' + q.v + ')">' + q.name + '</span><span class="stagetag">處理進度：' + L.stage + "</span>" + (L.trend.rising ? '<span class="stagetag risetag">' + RISE_TAG + "最近變多</span>" : "") + "</div>" +
@@ -561,7 +565,7 @@
       (L.decision ? '<div class="sec"><div class="sec-h"><h3>市府回覆</h3><span class="badge mock">示意</span></div><p class="accnote"><b>' + esc(L.decision.title) + "（" + esc(L.decision.date) + "）</b>：" + esc(L.decision.text) + "</p></div>" : "") +
       '<div class="sec"><div class="sec-h"><h3>處理進度</h3><span class="badge mock">示意</span></div><ol class="steps">' +
       STAGES.map(function (s, i) { return '<li class="' + (i < stageIdx ? "is-done" : i === stageIdx ? "is-now" : "") + '"><i></i>' + s + "</li>"; }).join("") + "</ol>" +
-      (L.schedule && L.stage === "已排程" ? '<p class="accnote">市府預計 <b>' + L.schedule.replace("-", " 年 ").replace(/ 0(\d)$/, " $1") + " 月</b>完工。</p>" : "") +
+      (L.schedule && L.stage === "已排程" ? '<p class="accnote">市府預計 <b>' + L.schedule.replace("-", " 年 ").replace(/ 0(\d)$/, " $1") + " 月</b>完工" + (L.plan ? "，預計怎麼改：<b>" + esc(L.plan) + "</b>" : "") + "。</p>" : "") +
       "</div>" +
       '<div class="sec"><div class="sec-h"><h3>怎麼送到市府</h3><span class="badge mock">示意</span></div><ul class="routes">' +
       ["district", "fast"].map(function (k) {
@@ -607,7 +611,13 @@
       var TL = window.TaoguoLINE || {};
       R.bot("嗨" + (TL.user ? "，" + esc(TL.user.name) : "") + "！這是「桃過一劫」的回報小幫手（示意）。差點出事、好險逃過一劫的地方，都可以跟我說。");
       R.bot('這裡用來回報「差點出事、讓人害怕」的路口。<br><b>緊急狀況</b>（大坑洞、號誌全滅、路樹倒塌）請直接打 <b>1999</b>；有人受傷請打 <b>110／119</b>。');
-      if (!S.me) R.stepAvatar(); else R.afterAvatar();
+      if (!S.me) R.stepAvatar(); else R.askSameAvatar();
+    },
+    askSameAvatar: function () {
+      var d = document.createElement("div"); d.className = "msg bot";
+      d.innerHTML = "上次你是這個小角色（" + esc(S.me.user) + "），這次也是嗎？" + '<div style="margin-top:6px">' + K.avatar(S.me.user, S.me.color, 44) + "</div>";
+      $("chat").appendChild(d); R.scroll();
+      R.opts(["對，就是我", "換一個"], function (t) { if (t === "換一個") R.stepAvatar(); else R.afterAvatar(); });
     },
     finishUpdate: function (L) {
       var hist = myHistory(), h = hist.filter(function (x) { return x.loc === L.id && x.mode === "concern"; })[0];
@@ -748,7 +758,7 @@
     stepText: function () {
       R.bot("想多說一點嗎？請描述路口的狀況，<b>不要寫出個人姓名、店名或車牌</b>。可以打字，正式版也可以直接錄語音（可說台語）。");
       var w = document.createElement("div"); w.style.alignSelf = "stretch"; w.style.display = "flex"; w.style.flexDirection = "column"; w.style.gap = "6px";
-      w.innerHTML = '<label class="note" for="rtext">補充說明（選填）</label><textarea id="rtext" maxlength="200" placeholder="例如：右轉時看不到斑馬線上的人"></textarea>';
+      w.innerHTML = '<label class="note" for="rtext">補充說明（選填，按 Enter 送出、Shift＋Enter 換行）</label><textarea id="rtext" maxlength="200" placeholder="例如：右轉時看不到斑馬線上的人"></textarea>';
       var o = document.createElement("div"); o.className = "opts";
       ["送出", "略過，直接送出"].forEach(function (t) {
         var b = document.createElement("button"); b.className = "opt"; b.type = "button"; b.textContent = t;
@@ -762,6 +772,8 @@
         o.appendChild(b);
       });
       $("chat").appendChild(w); $("chat").appendChild(o); R.scroll();
+      $("rtext").addEventListener("keydown", function (e) { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); o.querySelector(".opt").click(); } });
+      $("rtext").focus();
     },
     finish: function () {
       var L = S.byId[R.ctx.loc], r = L.reports, u = S.me.user;
