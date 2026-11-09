@@ -701,6 +701,12 @@
     return S.locs.filter(function (L) { return L.quadrant === "prevent"; }).sort(function (a, b) { return b.reports.concern - a.reports.concern; })[0] || S.locs[0];
   };
   var q = function (sel) { return function () { return document.querySelector(sel); }; };
+  /* 每一步需要的畫面不在（例如上一步跳過或沒點到）就自動補好，光圈才找得到按鈕 */
+  function needProfile() { var L = SAMPLE(); if (!document.querySelector("#metoo") || S.sel !== L.id) select(L.id, true); }
+  function needChat() { needProfile(); if ($("phone").hidden) R.open({ loc: SAMPLE().id, mode: "concern", quick: true }); }
+  function needOverview() { if (!$("phone").hidden) R.close(); if (!document.querySelector(".sec.explore") && !document.querySelector("#achopen")) renderOverview(); }
+  function needExploreCard() { if (!document.querySelector("#x-ok") && !document.querySelector(".xcard.done")) { var L = exploreTargets()[0]; if (L) select(L.id, true); } }
+  function needAch() { if (!document.querySelector(".bgrid")) renderAchievements(); }
   function toCitizen() { if (S.view === "gov" && window.GovView) window.GovView.setView("citizen"); }
   function firstCase() { return document.querySelector("#pin .case.case-district") || document.querySelector("#pin .case"); }
   var inCase = function (sel) { return function () { var c = firstCase(); return c && c.querySelector(sel); }; };
@@ -713,17 +719,17 @@
       { t: "點這個圓圈", b: "這是「潛在危險」的路口：事故還不多，但很多人覺得危險。<b>點它</b>打開小檔案。", do: true,
         el: function () { var L = SAMPLE(); return S.markers[L.id] && S.markers[L.id].el; },
         act: function () { var L = SAMPLE(); S.map.easeTo({ center: [L.lon, L.lat], zoom: 15.6, duration: 600 }); }, wait: 750 },
-      { t: "摘要卡：一眼看懂", b: "近三年事故、死亡、多少人回報、市府處理到哪，還有一句白話結論。", el: q(".sumcard") },
-      { t: "你也遇過？點「我也遇過」", b: "點這個按鈕，會打開回報小幫手。", do: true, el: q("#metoo") },
-      { t: "在對話裡點選", b: "照小幫手的問題<b>一路點下去</b>，全部用點的，不用打字。完成後會自動到下一步。", until: function () { return document.querySelector("#chat .done"); }, el: q("#phone") },
+      { act: needProfile, t: "摘要卡：一眼看懂", b: "近三年事故、死亡、多少人回報、市府處理到哪，還有一句白話結論。", el: q(".sumcard") },
+      { t: "你也遇過？點「我也遇過」", b: "點這個按鈕，會打開回報小幫手。", do: true, el: q("#metoo"), act: needProfile, wait: 700 },
+      { act: needChat, t: "在對話裡點選", b: "照小幫手的問題<b>一路點下去</b>，全部用點的，不用打字。完成後會自動到下一步。", until: function () { return document.querySelector("#chat .done"); }, el: q("#phone") },
       { t: "你是第幾位", b: "送出後會告訴你「你是第幾位」，知道不是只有你這樣覺得。（練習模式，不會真的算進去）", el: q("#chat .done") },
       { t: "關掉小幫手", b: "點右上角的 ×。", do: true, el: q("#phone-x") },
       { t: "🔍 去探索一個路口", b: "虛線路口回報還少，市府不知道那裡好不好走。<b>點清單裡的第一個</b>。", do: true,
-        el: q(".sec.explore .brow"), act: function () { renderOverview(); fitAll(true); } },
-      { t: "告訴我們這裡怎麼樣", b: "假裝你剛經過這裡，<b>點「還好，沒問題」</b>就完成探索。", do: true, el: q("#x-ok") },
+        el: q(".sec.explore .brow"), act: function () { if (!$("phone").hidden) R.close(); renderOverview(); fitAll(true); } },
+      { act: needExploreCard, wait: 700, t: "告訴我們這裡怎麼樣", b: "假裝你剛經過這裡，<b>點「還好，沒問題」</b>就完成探索。", do: true, el: q("#x-ok") },
       { t: "回到首頁", b: "點「← 回到全部路口」。", do: true, el: q("#back") },
-      { t: "看你的成就", b: "剛剛的探索讓你得到點數，還解鎖了徽章。<b>點這張卡</b>。", do: true, el: q("#achopen") },
-      { t: "戴上新頭銜", b: "解鎖的徽章可以當頭銜，留言旁大家都看得到。<b>點「戴上這個頭銜」</b>。", do: true, el: q("[data-eq]") },
+      { act: needOverview, t: "看你的成就", b: "剛剛的探索讓你得到點數，還解鎖了徽章。<b>點這張卡</b>。", do: true, el: q("#achopen") },
+      { act: needAch, t: "戴上新頭銜", b: "解鎖的徽章可以當頭銜，留言旁大家都看得到。<b>點「戴上這個頭銜」</b>。", do: true, el: q("[data-eq]") },
       { t: "進階：切到「兩者對照」", b: "最後看事故和回報有沒有落差。<b>點「兩者對照」</b>。", do: true, el: q('[data-layer="compare"]'), act: function () { renderOverview(); } },
       { t: "讀散布圖", b: "每個點是一個路口：<b>左上</b>＝大家覺得危險但還沒出事，<b>右下</b>＝常出事卻少人回報。<b>點左上的任一個點</b>試試。", do: true, el: q("#scatcard .scatter") },
       { t: "練習完成！", b: "你已經走完一次：找路口 → 回報 → 探索 → 收集徽章 → 讀散布圖。<br>剛剛的操作都會還原。隨時按右上角 ? 可以再練習一次。" }
