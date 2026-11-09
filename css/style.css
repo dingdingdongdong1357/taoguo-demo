@@ -509,3 +509,24 @@ details.deep>.stats{margin-top:8px}
 .prow .why i.w-fast{background:var(--marking);border-color:var(--ink);color:#1F2427}
 .pn{display:inline-grid;place-items:center;flex:none;width:24px;height:24px;border-radius:50%;background:var(--ink);color:var(--bg);font:700 12px/1 var(--f-mono)}
 .case header .pn{margin-right:6px}
+
+/* 待探索 */
+.xtag{display:inline-block;flex:none;font-size:11px;padding:1px 7px;border:1.5px dashed var(--accent);border-radius:999px;color:var(--accent);white-space:nowrap}
+.xtag.done{border-style:solid;background:var(--accent);color:#fff}
+.xprog{height:8px;background:var(--soft);border-radius:999px;overflow:hidden}
+.xprog span{display:block;height:100%;background:var(--accent)}
+.xcard{display:flex;flex-direction:column;gap:6px;padding:12px;border:2px dashed var(--accent);border-radius:2px;background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
+.xcard p{margin:0;font-size:13.5px}
+.xcard.done{border-style:solid}
+/* 影響力 */
+.impact{display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--soft);border-radius:2px}
+.imp-top{display:flex;align-items:baseline;gap:10px}
+.imp-top>b{font-size:30px;line-height:1}
+.imp-top small{display:block;color:var(--muted);font-size:12px}
+.imp-rules{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--muted)}
+.imp-rules li{display:flex;justify-content:space-between;gap:8px}
+.imp-rules li.on{color:var(--ink);font-weight:500}
+.mrow .nm small{display:block}
+.chain{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:4px}
+.chain li{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.chain li.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}

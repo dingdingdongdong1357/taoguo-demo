@@ -36,7 +36,7 @@
   function saveHistory(list) { try { var st = histStore(); if (st) st.setItem(HKEY + histId(), JSON.stringify(list)); } catch (e) {} }
   function myReport(id, mode) { return myHistory().filter(function (h) { return h.loc === id && (!mode || h.mode === mode); })[0]; }
   function mmdd(iso) { var d = new Date(iso); return (d.getMonth() + 1) + "/" + d.getDate(); }
-  function myLine(h) { return h.mode === "praise" ? "說這裡變好了（" + h.praise + "）" : h.cat + "・" + h.sev; }
+  function myLine(h) { return h.mode === "explore" ? "探索：" + (h.result === "ok" ? "還好" : "要注意") : h.mode === "praise" ? "說這裡變好了（" + h.praise + "）" : h.cat + "・" + h.sev; }
   function sum(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
   function fmt(n) { return Number(n).toLocaleString("zh-TW"); }
 
@@ -475,12 +475,12 @@
       (worst ? '<p class="accnote">附近最多人回報的是 <b>' + esc(worst.L.name) + "</b>（" + worst.L.reports.concern + " 人），最常遇到「" + esc(topCat(worst.L)) + "」。</p>" : "") +
       (top && top.L.real.acc_recent ? '<div class="dangertop"><p class="b-label">範圍內最危險的路口</p><button class="brow" data-id="' + top.L.id + '"><span class="nm">' + esc(top.L.name) + deadTag(top.L) + '</span><span class="mono v">事故 ' + top.L.real.acc_recent + " 件</span></button></div>" : "") +
       '<div class="sec"><div class="sec-h"><h3>範圍內的路口</h3><div class="seg sortseg" role="group" aria-label="排序"><button type="button" data-s="danger" aria-pressed="' + (n.sort !== "near") + '">最危險</button><button type="button" data-s="near" aria-pressed="' + (n.sort === "near") + '">最近</button></div></div>' +
-      '<p class="note">「最危險」先看近三年死亡事故件數，再看事故總件數（真實資料）。</p>' +
+      '<p class="note">「最危險」先看近三年死亡事故件數，再看事故總件數（真實資料）。' + (function () { var k = inR.filter(function (x) { return x.L.care === "few" && !x.L.improved && !explored(x.L); }).length; return k ? "範圍內有 <b>" + k + "</b> 個🔍待探索路口。" : ""; })() + '</p>' +
       (inR.length ? '<ol class="board">' + inR.map(function (x) {
         var L = x.L;
         return '<li><button class="brow" data-id="' + L.id + '">' + careBadge(L, 24) + '<span class="nm">' + esc(L.name) + deadTag(L) +
           '<span class="accbar"><i style="width:' + Math.round(L.real.acc_recent / accMax * 100) + '%"></i></span>' +
-          '<span class="sub">' + QUAD[L.quadrant].name + "・事故 " + L.real.acc_recent + " 件" + (typesOf(L) && typesOf(L).vehicles["行人"] ? "・撞到行人 " + typesOf(L).vehicles["行人"] + " 件" : "") + "・回報 " + L.reports.concern + ' 人</span></span><span class="mono v">' + Math.round(x.d / 10) * 10 + " m</span></button></li>";
+          '<span class="sub">' + (L.care === "few" && !L.improved && !explored(L) ? '<span class="xtag">待探索</span> ' : "") + QUAD[L.quadrant].name + "・事故 " + L.real.acc_recent + " 件" + (typesOf(L) && typesOf(L).vehicles["行人"] ? "・撞到行人 " + typesOf(L).vehicles["行人"] + " 件" : "") + "・回報 " + L.reports.concern + ' 人</span></span><span class="mono v">' + Math.round(x.d / 10) * 10 + " m</span></button></li>";
       }).join("") + "</ol>" : '<p class="note">這個範圍內沒有 Demo 的路口，試試把範圍放大。</p>') + "</div>" +
       '<p class="note">事故＝路口 35 公尺內的 A1、A2 事故（桃園市政府開放資料）；回報為示意資料。定位只用來畫範圍，不會記錄或上傳。</p>';
     $("pin").innerHTML = html;
@@ -526,12 +526,13 @@
       '<p class="lede">市民回報差點出事的路口，其他人可以按「我也遇過」。地圖把市民的經驗和真實事故放在一起看，找出還沒出事、但大家都覺得危險的地方。</p>' +
       '<div class="findbox"><p class="b-label">先找到你關心的路口</p><div class="findrow"><div class="search"><input id="q" type="search" autocomplete="off" placeholder="搜尋路名，例如：延平路" aria-label="搜尋路名"><ul class="qres" id="qres"></ul></div>' +
       '<button type="button" class="btn" id="nearp">📍 我附近</button></div><p class="note">或直接點地圖上的圓圈；右上角「＋ 我要回報」可以體驗回報流程。</p></div>' +
-      myHistoryHTML() +
+      impactHTML() +
       '<div class="sec"><div class="sec-h"><h3>三種路口</h3><span class="src">事故（真實）× 回報（示意）</span></div><div class="quadgrid">' +
       ["prevent", "priority", "calm"].map(function (k) {
         var q = QUAD[k];
         return '<button class="qcard" style="--qc:var(' + q.v + ')" data-quad="' + k + '"><b>' + q.name + "</b><span>" + q.desc + "</span><em>" + counts[k] + " 個路口</em></button>";
       }).join("") + "</div>" + "</div>" +
+      exploreSecHTML() +
       '<div class="sec"><div class="sec-h"><h3>從這幾個路口看起</h3></div><div class="picks">' +
       picks.map(function (L) {
         return '<button class="pick" data-id="' + L.id + '">' + careBadge(L, 30) + '<span><span class="nm">' + esc(L.name) + '</span><br><span class="sub">' + QUAD[L.quadrant].name + "・回報 " + L.reports.concern + " 人・近三年事故 " + L.real.acc_recent + " 件</span></span></button>";
@@ -567,6 +568,91 @@
     renderMarkers();
   }
 
+  /* ---------------- 待探索路口 + 影響力 ----------------
+     待探索＝回報還少（資訊不足）的路口。經過時按一下「還好／要注意」，幫地圖補上資料缺口。
+     影響力只算「有用」的貢獻：被別人確認、送到市府、改善完成、回診確認；同一個路口只算一次。 */
+  function exploreTargets() {
+    return S.locs.filter(function (L) { return L.care === "few" && !L.improved; })
+      .sort(function (a, b) { return b.real.acc_recent - a.real.acc_recent || (a.id < b.id ? -1 : 1); });  // 事故多但回報少的先看
+  }
+  function explored(L) { return myHistory().some(function (h) { return h.loc === L.id && (h.mode === "explore" || h.wasFew); }); }
+  function doExplore(L, result) {
+    L.explore = L.explore || { ok: 0 };
+    if (result === "ok") L.explore.ok += 1;
+    var hist = myHistory();
+    hist.push({ loc: L.id, mode: "explore", result: result, date: new Date().toISOString() });
+    saveHistory(hist);
+  }
+  var IMPACT_RULES = [
+    ["explore", 1, "探索一個資訊不足的路口"],
+    ["confirmed", 2, "你的回報有其他人也遇過（被確認）"],
+    ["sent", 3, "路口送到市府處理"],
+    ["fixed", 5, "路口改善完成"],
+    ["checked", 1, "改善後回來確認「變好了」"]
+  ];
+  var TITLES = [[0, "路過的人"], [3, "路口觀察員"], [8, "街區守護者"], [15, "中壢守護者"]];
+  function impactOf() {
+    var hist = myHistory(), byLoc = {}, got = { explore: 0, confirmed: 0, sent: 0, fixed: 0, checked: 0 };
+    hist.forEach(function (h) { (byLoc[h.loc] = byLoc[h.loc] || []).push(h); });
+    Object.keys(byLoc).forEach(function (id) {
+      var L = S.byId[id], hs = byLoc[id];
+      if (!L) return;
+      var concern = hs.some(function (h) { return h.mode === "concern"; });
+      if (hs.some(function (h) { return h.mode === "explore" || h.wasFew; })) got.explore += 1;
+      if (concern && L.reports.concern >= 2) got.confirmed += 1;
+      if (concern && (["district", "fast", "next"].indexOf(L.route) >= 0 || L.dispatched)) got.sent += 1;
+      if (concern && (L.improved || L.stage === "已改善" || hasUpdate(L))) got.fixed += 1;
+      if (hs.some(function (h) { return h.mode === "praise"; })) got.checked += 1;
+    });
+    var pts = IMPACT_RULES.reduce(function (a, r) { return a + got[r[0]] * r[1]; }, 0);
+    var title = TITLES.filter(function (t) { return pts >= t[0]; }).pop(), next = TITLES.filter(function (t) { return pts < t[0]; })[0];
+    return { pts: pts, got: got, title: title[1], next: next, locs: Object.keys(byLoc).length };
+  }
+  /* 一筆回報走到哪裡：回報 → 有人也遇過 → 送到市府 → 處理中 → 改善完成 → 有人說變好了 */
+  function chainHTML(L, h) {
+    var sent = ["district", "fast", "next"].indexOf(L.route) >= 0 || !!L.dispatched, fixed = L.improved || L.stage === "已改善" || hasUpdate(L);
+    var steps = h.mode === "explore"
+      ? [["探索", true], [h.result === "ok" ? "你說還好" : "你說要注意", true], ["回報累積中", L.care !== "few"]]
+      : [["你回報" + (h.rank ? "（第 " + h.rank + " 位）" : ""), true], ["有人也遇過", L.reports.concern >= 2], ["送到市府", sent],
+         ["處理中", ["現勘中", "已排程", "改善中", "已改善"].indexOf(L.stage) >= 0 || fixed], ["改善完成", fixed], [L.reports.praise + " 人說變好了", fixed && L.reports.praise > 0]];
+    return '<ol class="chain">' + steps.map(function (s) { return '<li class="' + (s[1] ? "on" : "") + '">' + esc(s[0]) + "</li>"; }).join("") + "</ol>";
+  }
+  function impactHTML() {
+    var hist = myHistory();
+    if (!hist.length) return "";
+    var im = impactOf(), seen = {};
+    var rows = hist.slice().reverse().filter(function (h) { if (seen[h.loc] || !S.byId[h.loc]) return false; seen[h.loc] = 1; return true; });
+    return '<div class="sec mine"><div class="sec-h"><h3><i class="mineb static">我</i>我的影響力</h3><span class="badge mock">示意</span></div>' +
+      '<div class="impact"><div class="imp-top"><b class="mono">' + im.pts + '</b><span>點・<b>' + esc(im.title) + "</b>" +
+      (im.next ? "<small>再 " + (im.next[0] - im.pts) + " 點成為「" + esc(im.next[1]) + "」</small>" : "") + "</span></div>" +
+      '<ul class="imp-rules">' + IMPACT_RULES.map(function (r) {
+        return '<li class="' + (im.got[r[0]] ? "on" : "") + '"><span>' + esc(r[2]) + '</span><span class="mono">+' + r[1] + (im.got[r[0]] ? " × " + im.got[r[0]] : "") + "</span></li>";
+      }).join("") + "</ul></div>" +
+      '<p class="b-label">你的回報走到哪裡</p><ol class="board">' + rows.map(function (h) {
+        var L = S.byId[h.loc];
+        return '<li><button class="brow mrow" data-id="' + L.id + '">' + careBadge(L, 24) + '<span class="nm">' + esc(L.name) + '<small class="note">' + mmdd(h.date) + " " + esc(myLine(h)) + (h.updates ? "・補充 " + h.updates + " 次" : "") + "</small>" + chainHTML(L, h) + "</span></button></li>";
+      }).join("") + "</ol>" +
+      '<p class="note">只算有用的貢獻：同一個路口只算一次，亂報不會加分。市府處理有進度時，會在這裡和 LINE 通知你。</p></div>';
+  }
+  function exploreSecHTML() {
+    var list = exploreTargets(), done = list.filter(explored).length;
+    if (!list.length) return "";
+    return '<div class="sec explore"><div class="sec-h"><h3>🔍 待探索路口（' + list.length + '）</h3><span class="badge mock">示意</span></div>' +
+      '<p class="note">這些路口回報還少，市府不知道那裡好不好走。經過時幫忙看一眼，按一下「還好」或「要注意」就完成探索。事故多的排前面，最值得去看。</p>' +
+      '<div class="xprog"><span style="width:' + Math.round(done / list.length * 100) + '%"></span></div><p class="note">你已探索 <b>' + done + "</b> / " + list.length + " 個</p>" +
+      '<ol class="board">' + list.slice(0, 5).map(function (L) {
+        return '<li><button class="brow" data-id="' + L.id + '">' + careBadge(L, 24) + '<span class="nm">' + esc(L.name) + deadTag(L) + '<small class="note">近三年事故 ' + L.real.acc_recent + " 件・回報 " + L.reports.concern + " 人</small></span>" +
+          (explored(L) ? '<span class="xtag done">已探索</span>' : '<span class="xtag">待探索</span>') + "</button></li>";
+      }).join("") + "</ol></div>";
+  }
+  function exploreCardHTML(L) {
+    if (L.care !== "few" || L.improved) return "";
+    var mine = myHistory().filter(function (h) { return h.loc === L.id && h.mode === "explore"; }).pop();
+    if (mine) return '<div class="xcard done"><b>🔍 你探索過這裡</b><p>' + mmdd(mine.date) + " 你說「" + (mine.result === "ok" ? "還好" : "要注意") + "」，影響力 +1。謝謝你幫地圖補上資料！</p></div>";
+    return '<div class="xcard"><b>🔍 待探索：這裡回報還少</b><p>市府還不知道這個路口好不好走。你經過這裡嗎？覺得怎麼樣？</p>' +
+      '<div class="actions"><button class="btn" id="x-ok">還好，沒問題</button><button class="btn primary" id="x-warn">要注意</button></div>' +
+      '<p class="note">正式版要在路口 100 公尺內（手機定位）才能探索，每個路口一次。</p></div>';
+  }
   function myHistoryHTML() {
     var list = myHistory().slice().reverse();
     if (!list.length) return "";
@@ -755,6 +841,7 @@
       '<p class="wxline">' + careText(L) + "・" + esc(L.district) + "</p>" +
 
       summaryCard(L) +
+      exploreCardHTML(L) +
       '<div class="sec"><div class="sec-h"><h3>有多少人也遇過</h3><span class="badge mock">示意</span></div>' +
       '<div class="big"><b class="mono">' + r.concern + '</b><span>人回報這裡要注意' + (r.praise ? "・" + r.praise + " 人說變好了" : "") + "</span></div>" +
       '<div class="crowd" aria-hidden="true">' + crowdHTML(r.users, 40) + "</div>" +
@@ -829,6 +916,8 @@
     $("back").addEventListener("click", function () { if (S.near) renderNearby(); else renderOverview(); });
     bindScatter($("pin"));
     $("metoo").addEventListener("click", function () { R.open({ loc: L.id, mode: "concern", quick: true }); });
+    if ($("x-ok")) $("x-ok").addEventListener("click", function () { doExplore(L, "ok"); renderProfile(L); renderMarkers(); });
+    if ($("x-warn")) $("x-warn").addEventListener("click", function () { doExplore(L, "warn"); renderMarkers(); R.open({ loc: L.id, mode: "concern" }); });
     $("better").addEventListener("click", function () { R.open({ loc: L.id, mode: "praise" }); });
   }
 
@@ -1024,7 +1113,8 @@
       }
       r.users[u] = before + 1;
       var hist = myHistory();
-      hist.push({ loc: L.id, mode: R.ctx.mode, cat: R.ctx.cat, sev: R.ctx.sev, time: R.ctx.time, praise: R.ctx.praise, date: new Date().toISOString() });
+      hist.push({ loc: L.id, mode: R.ctx.mode, cat: R.ctx.cat, sev: R.ctx.sev, time: R.ctx.time, praise: R.ctx.praise, date: new Date().toISOString(),
+                  rank: R.ctx.mode === "praise" ? r.praise : r.concern, wasFew: L.care === "few" });
       saveHistory(hist);
       refresh(L);
       var rank = R.ctx.mode === "praise" ? r.praise : r.concern;
