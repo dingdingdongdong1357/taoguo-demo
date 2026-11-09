@@ -12,7 +12,7 @@ from pathlib import Path
 sys.stdout.reconfigure(encoding="utf-8")
 ROOT = Path(__file__).resolve().parent.parent
 fails, passes = [], []
-ALLOWED = [r"^https://fonts\.googleapis\.com(/|$)",r"^https://fonts\.gstatic\.com", r"^https://unpkg\.com/maplibre-gl@\d+\.\d+\.\d+/"]
+ALLOWED = [r"^https://static\.line-scdn\.net/liff/edge/2/sdk\.js$", r"^https://fonts\.googleapis\.com(/|$)",r"^https://fonts\.gstatic\.com", r"^https://unpkg\.com/maplibre-gl@\d+\.\d+\.\d+/"]
 
 
 def check(ok, msg):

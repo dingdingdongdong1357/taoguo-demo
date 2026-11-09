@@ -168,6 +168,7 @@
       fitAll(false);
       onZoom();
       applyHash();
+      autoReport();
       document.body.dataset.mapReady = "1";
     });
     map.on("zoom", onZoom);
@@ -581,7 +582,8 @@
       R.ctx = { loc: opts.loc || null, mode: opts.mode || null, quick: !!opts.quick, cat: null, time: null, freq: null, sev: null, praise: null };
       $("phone").hidden = false;
       $("chat").innerHTML = "";
-      R.bot("嗨！這是「桃過一劫」的回報小幫手（示意）。差點出事、好險逃過一劫的地方，都可以跟我說。");
+      var TL = window.TaoguoLINE || {};
+      R.bot("嗨" + (TL.user ? "，" + esc(TL.user.name) : "") + "！這是「桃過一劫」的回報小幫手（示意）。差點出事、好險逃過一劫的地方，都可以跟我說。");
       R.bot('這裡用來回報「差點出事、讓人害怕」的路口。<br><b>緊急狀況</b>（大坑洞、號誌全滅、路樹倒塌）請直接打 <b>1999</b>；有人受傷請打 <b>110／119</b>。');
       if (!S.me) R.stepAvatar(); else R.afterAvatar();
     },
@@ -675,6 +677,16 @@
       if (!fromPick) R.me(L.name);
       pulse(L.id);
       var n = R.ctx.mode === "praise" ? L.reports.praise : L.reports.concern;
+      var TL = window.TaoguoLINE;
+      if (TL && TL.has(L.id, R.ctx.mode)) {
+        R.bot("你用這個 LINE 帳號回報過這個路口了。<b>一人一次</b>，同一個路口只計一次。");
+        R.opts(["看這個路口", "回報別的路口", "關閉"], function (t) {
+          if (t === "看這個路口") { R.close(); select(L.id, true); }
+          else if (t === "回報別的路口") { R.ctx.loc = null; R.stepWhere(); }
+          else R.close();
+        });
+        return;
+      }
       var crowd = '<div class="crowd" style="margin-top:6px">' + crowdHTML(L.reports.users, 24) + "</div>";
       if (R.ctx.mode === "praise" && !canPraise(L)) {
         R.bot("這個路口市府還沒有發布改善更新，等改善完成後才能說「這裡變好了」。要改成回報這裡要注意嗎？");
@@ -734,6 +746,7 @@
         if (R.ctx.text) L.comments.unshift({ tone: "concern", category: R.ctx.cat, text: R.ctx.text, user: u, mine: true });
       }
       r.users[u] = before + 1;
+      if (window.TaoguoLINE) window.TaoguoLINE.mark(L.id, R.ctx.mode);
       refresh(L);
       var rank = R.ctx.mode === "praise" ? r.praise : r.concern;
       var d = document.createElement("div"); d.className = "done";
@@ -741,7 +754,7 @@
         '<div class="stage"><div class="crowdline">' + crowdHTML(r.users, 14) + '</div><div class="me">' + K.avatar(S.me.user, S.me.color, 44) + '</div><div class="road"></div></div>' +
         '<p class="mine">' + esc(R.ctx.mode === "praise" ? "你說：" + R.ctx.praise : "你回報：" + R.ctx.cat + "・" + R.ctx.time + "・" + (R.ctx.freq || "") + "・" + R.ctx.sev) + "</p>" +
         '<p class="note">' + (R.ctx.mode === "praise" ? "謝謝你！我們會把這句感謝轉給負責改善的單位。" : "我們每月會把這裡整理給市府。處理有進展時，會在這裡通知你。") + "</p>" +
-        '<p class="note">（示意：這筆回報只存在你這次瀏覽，不會送出）</p>';
+        '<p class="note">（示意：這筆回報只存在你這次瀏覽，不會送出' + (window.TaoguoLINE && window.TaoguoLINE.user ? '；同一個 LINE 帳號每個路口只計一次' : '') + '）</p>';
       $("chat").appendChild(d);
       var me = d.querySelector(".stage .me"), line = d.querySelector(".crowdline");
       requestAnimationFrame(function () {
@@ -787,6 +800,14 @@
     }
   }
 
+  /* LINE 選單「我要回報」用 ?report=1 直接打開回報小幫手；資料載完、地圖載完各試一次，已打開就不重複 */
+  function autoReport() {
+    if (!/[?&]report=1(&|$)/.test(location.search) || !S.locs) return;
+    (window.TaoguoLINE ? window.TaoguoLINE.ready : Promise.resolve()).then(function () {
+      if ($("phone").hidden && !$("chat").children.length) R.open({});
+    });
+  }
+
   /* ---------------- boot ---------------- */
   function boot() {
     $("brand").insertAdjacentHTML("afterbegin", K.brand());
@@ -805,6 +826,8 @@
       S.roads = res[0]; S.locs = res[1]; S.meta = res[2];
       S.locs.forEach(function (L) { S.byId[L.id] = L; });
       renderOverview();
+      autoReport();
+      setTimeout(autoReport, 1500);
       if (!window.maplibregl) throw new Error("地圖元件沒有載入");
       initMap();
     }).catch(function (err) {
