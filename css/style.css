@@ -594,3 +594,23 @@ table.rules tr.on td{font-weight:700}
 .bq{display:grid;place-items:center;width:72px;height:72px;border-radius:50%;border:2px dashed var(--line);font:700 30px/1 var(--f-body);color:var(--line)}
 .bcard .btn.small{padding:3px 8px;font-size:12px}
 .ach-ic{display:block}
+
+/* 互動練習導覽 */
+.tour{position:fixed;inset:0;z-index:60;pointer-events:none}
+.tour[hidden]{display:none}
+.t-bk{position:fixed;background:rgba(15,18,20,.55);pointer-events:auto;transition:all .3s ease}
+.t-hole{position:fixed;border-radius:10px;box-shadow:0 0 0 3px #fff,0 0 0 6px var(--accent);transition:all .35s ease;pointer-events:none}
+.t-hole.act{animation:tpulse 1.4s ease-in-out infinite}
+@keyframes tpulse{0%,100%{box-shadow:0 0 0 3px #fff,0 0 0 6px var(--accent)}50%{box-shadow:0 0 0 3px #fff,0 0 0 12px color-mix(in srgb,var(--accent) 45%,transparent)}}
+.t-tap{position:fixed;font-size:30px;line-height:1;transition:left .35s,top .35s,opacity .2s;animation:ttap 1s ease-in-out infinite;filter:drop-shadow(0 2px 2px rgba(0,0,0,.4));pointer-events:none}
+@keyframes ttap{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.t-flag{position:fixed;left:50%;top:8px;transform:translateX(-50%);padding:4px 12px;border-radius:999px;background:var(--marking);color:#1F2427;font-size:12.5px;font-weight:700;border:1.5px solid #1F2427;pointer-events:none;white-space:nowrap}
+.t-tip{position:fixed;display:flex;flex-direction:column;gap:10px;max-height:calc(100vh - 24px);overflow:auto;padding:16px 18px;background:var(--surface);color:var(--ink);border:1.5px solid var(--ink);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.3);pointer-events:auto;transition:left .35s ease,top .35s ease,opacity .2s}
+.t-tip.moving{opacity:.35}
+.t-tip h2{margin:0;font-size:18px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.t-do{font-size:12px;padding:2px 8px;border-radius:999px;background:var(--accent);color:#fff}
+.t-tip .gbody{font-size:14px;line-height:1.65}
+.t-tip .gd{display:inline-block;width:8px;height:8px;border-radius:50%;border:1px solid var(--muted)}
+.t-tip .gd.done{background:var(--muted)}
+.t-tip .gd.on{background:var(--ink);border-color:var(--ink);transform:scale(1.25)}
+@media (max-width:820px){.t-tip{max-height:38vh;padding:12px 14px}.t-tip .gbody{font-size:13.5px}.t-flag{top:auto;bottom:8px}}

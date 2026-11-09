@@ -486,6 +486,9 @@
     A = window.DemoApp; S = A.state; U = A.util;
     document.querySelectorAll("#viewseg button").forEach(function (b) { b.addEventListener("click", function () { setView(b.dataset.view); }); });
   }
-  window.GovView = { render: render, focus: focus, setView: setView, publishUpdate: publishUpdate };
+  /* 練習導覽用：存下／還原市府端的紀錄（調整、退回、回覆） */
+  function snapshot() { return JSON.stringify({ replied: replied, adjusted: adjusted, fixes: fixes }); }
+  function restore(js) { var o = JSON.parse(js); replied = o.replied; adjusted = o.adjusted; fixes = o.fixes; }
+  window.GovView = { render: render, focus: focus, setView: setView, publishUpdate: publishUpdate, snapshot: snapshot, restore: restore };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();

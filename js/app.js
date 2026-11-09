@@ -32,8 +32,8 @@
   var HKEY = "taoguo:history:";
   function histStore() { var TL = window.TaoguoLINE; try { return TL && TL.user ? window.localStorage : window.sessionStorage; } catch (e) { return null; } }
   function histId() { var TL = window.TaoguoLINE; return TL && TL.user ? TL.user.id : "guest"; }
-  function myHistory() { try { var st = histStore(); return st ? JSON.parse(st.getItem(HKEY + histId()) || "[]") : []; } catch (e) { return []; } }
-  function saveHistory(list) { try { var st = histStore(); if (st) st.setItem(HKEY + histId(), JSON.stringify(list)); } catch (e) {} }
+  function myHistory() { if (S.practice) return S.practice.hist; try { var st = histStore(); return st ? JSON.parse(st.getItem(HKEY + histId()) || "[]") : []; } catch (e) { return []; } }
+  function saveHistory(list) { if (S.practice) { S.practice.hist = list; return; } try { var st = histStore(); if (st) st.setItem(HKEY + histId(), JSON.stringify(list)); } catch (e) {} }
   function myReport(id, mode) { return myHistory().filter(function (h) { return h.loc === id && (!mode || h.mode === mode); })[0]; }
   function mmdd(iso) { var d = new Date(iso); return (d.getMonth() + 1) + "/" + d.getDate(); }
   function myLine(h) { return h.mode === "explore" ? "探索：" + (h.result === "ok" ? "還好" : "要注意") : h.mode === "praise" ? "說這裡變好了（" + h.praise + "）" : h.cat + "・" + h.sev; }
@@ -694,55 +694,162 @@
     $("panel").scrollTop = 0;
   }
 
-  /* ---------------- 使用說明：按 ? 一頁一頁看，由淺入深 ---------------- */
-  var cbx = function (cls, t) { return '<span class="cb ' + cls + '" style="width:26px;height:26px;font-size:10px">' + t + "</span>"; };
-  var GUIDE = {
+  /* ---------------- 使用說明：互動練習導覽 ----------------
+     按 ? 開始。光圈框出畫面上真正的按鈕，手指提示要點哪裡，由使用者自己點，點對了就自動到下一步。
+     全程是「練習模式」：回報、探索、徽章、派案都只在記憶裡，導覽結束後全部還原，不會真的登記。 */
+  var SAMPLE = function () {  // 用潛在危險裡回報最多的路口示範
+    return S.locs.filter(function (L) { return L.quadrant === "prevent"; }).sort(function (a, b) { return b.reports.concern - a.reports.concern; })[0] || S.locs[0];
+  };
+  var q = function (sel) { return function () { return document.querySelector(sel); }; };
+  function toCitizen() { if (S.view === "gov" && window.GovView) window.GovView.setView("citizen"); }
+  function firstCase() { return document.querySelector("#pin .case.case-district") || document.querySelector("#pin .case"); }
+  var inCase = function (sel) { return function () { var c = firstCase(); return c && c.querySelector(sel); }; };
+  /* 步驟：do＝要使用者點 el；until＝要等到畫面出現某個狀態（例如回報完成）；沒有 do/until 就是說明，按「下一步」 */
+  var TOUR = {
     citizen: [
-      { t: "桃過一劫是什麼？", b: "<p>市民回報「差點出事」的路口，和警察局的真實事故放在同一張地圖上，<b>在出事之前</b>找出危險的路口。</p><p class=\"note\">地圖上的事故是真實資料；回報、留言、市府進度是示意資料，用來展示系統怎麼運作。</p>" },
-      { t: "第 1 步：找到你關心的路口", b: "<ul class=\"plain\"><li><b>搜尋路名</b>：首頁最上面的搜尋框。</li><li><b>📍 我附近</b>：用手機定位，列出 500 公尺到 2 公里內的路口，預設<b>最危險的排前面</b>（先比死亡事故，再比事故件數）。</li><li>或直接<b>點地圖上的圓圈</b>。</li></ul>" },
-      { t: "第 2 步：看懂地圖上的圓圈", b: "<p>一個圓圈＝一個路口，<b>數字和大小＝回報人數</b>。</p><ul class=\"plain icons\"><li>" + cbx("care-many", "54") + "深色實心：很多人關心</li><li>" + cbx("care-some", "21") + "白底粗框：有人關心</li><li>" + cbx("care-few", "4") + "虛線：回報還少，<b>資訊不夠，不代表安全</b></li><li>" + cbx("care-few improved", "✓") + "打勾：改善後多數人說變好了</li></ul><p>角落的小標籤：<i class=\"a1b static\">亡 1</i>近三年死亡事故件數、<i class=\"rtb static\">急</i>急件、<i class=\"rsb static\">↑</i>最近變多、<i class=\"mineb static\">我</i>你回報過、🔍 現勘中、🚧 施工中。</p>" },
-      { t: "第 3 步：打開路口小檔案", b: "<p>點一個圓圈，右邊會出現這個路口的小檔案。<b>最上面的摘要卡</b>一眼告訴你：</p><ul class=\"plain\"><li>近三年事故幾件、死亡幾件（真實資料）</li><li>多少人回報要注意、市府處理到哪</li><li>一句白話結論：這裡為什麼危險、大家最常遇到什麼</li></ul><p>往下捲還有：什麼時候、遇到什麼、是什麼樣的事故（撞到行人、機車…）、最近有沒有變多。</p>" },
-      { t: "第 4 步：回報或按「我也遇過」", b: "<ul class=\"plain\"><li>右上角「＋ 我要回報」：全部用點的，大約 60 秒。</li><li>別人回報過的路口，按「<b>我也遇過</b>」就好，畫面會告訴你「你是第幾位」。</li><li>一個 LINE 帳號、一個路口只算一次。</li><li>緊急狀況（大坑洞、號誌全滅）請直接打 1999，有人受傷打 110／119。</li></ul>" },
-      { t: "第 5 步：🔍 待探索路口（尋寶）", b: "<p>虛線的路口回報還少，市府不知道那裡好不好走。首頁有「🔍 待探索路口」清單，<b>事故多但回報少的排前面</b>。</p><p>經過時打開那個路口，按「還好，沒問題」或「要注意」就完成探索，幫地圖補上資料缺口。</p>" },
-      { t: "第 6 步：點數與稱號怎麼算", b: "<table class=\"rules\"><tr><th>做了什麼</th><th>點數</th></tr>" + IMPACT_RULES.map(function (r) { return "<tr><td>" + r[2] + "</td><td class=\"mono\">+" + r[1] + "</td></tr>"; }).join("") + "</table><p>稱號：" + TITLES.map(function (t) { return t[1] + (t[0] ? "（" + t[0] + " 點）" : ""); }).join(" → ") + "。</p><p class=\"note\">只算有用的貢獻，同一個路口只算一次，亂報不會加分。首頁的「我的成就」是徽章圖鑑：解鎖後可以戴上頭銜，留言和回報旁邊大家都看得到。</p>" },
-      { t: "進階：兩者對照與散布圖", b: "<p>地圖左上切到「<b>兩者對照</b>」，路口分成三種：危險（事故多）、潛在危險（事故少但很多人覺得危險）、相對安全。</p><p>同時會打開<b>散布圖</b>：每個點是一個路口，橫軸是事故排名、縱軸是回報排名。兩邊一致就在斜線上；<b>左上</b>＝大家覺得危險但還沒出事，<b>右下</b>＝常出事卻少人回報。點一個點，地圖會跳到那個路口。</p>" },
-      { t: "進階：回報怎麼送到市府", b: "<ul class=\"plain\"><li>同一個路口 35 公尺內的回報合成一案。</li><li>每個行政區每月前 3 名送市府，每區名額一樣。</li><li>人數還少但有急迫訊號（最近變多、曾經擦撞附照片）走「急件」，每區每月最多 1 件。</li><li>市府更新進度時你會收到通知；改善後一個月回診，問你有沒有變好。</li></ul><p class=\"note\">首頁的「深入看看」有各區排行、最近變多、落差最大的路口。</p>" }
+      { t: "來練習一次吧！", b: "接下來你會<b>自己動手</b>：找路口、回報、探索、收集徽章。<br><b>這是練習模式</b>，做的事都不會真的送出，結束後會還原。",
+        act: function () { toCitizen(); setLayer("reports"); renderOverview(); fitAll(true); } },
+      { t: "看懂地圖", b: "一個圓圈＝一個路口，數字和大小＝回報人數。紅色「亡 1」是近三年死亡事故件數。", el: q("#legend") },
+      { t: "點這個圓圈", b: "這是「潛在危險」的路口：事故還不多，但很多人覺得危險。<b>點它</b>打開小檔案。", do: true,
+        el: function () { var L = SAMPLE(); return S.markers[L.id] && S.markers[L.id].el; },
+        act: function () { var L = SAMPLE(); S.map.easeTo({ center: [L.lon, L.lat], zoom: 15.6, duration: 600 }); }, wait: 750 },
+      { t: "摘要卡：一眼看懂", b: "近三年事故、死亡、多少人回報、市府處理到哪，還有一句白話結論。", el: q(".sumcard") },
+      { t: "你也遇過？點「我也遇過」", b: "點這個按鈕，會打開回報小幫手。", do: true, el: q("#metoo") },
+      { t: "在對話裡點選", b: "照小幫手的問題<b>一路點下去</b>，全部用點的，不用打字。完成後會自動到下一步。", until: function () { return document.querySelector("#chat .done"); }, el: q("#phone") },
+      { t: "你是第幾位", b: "送出後會告訴你「你是第幾位」，知道不是只有你這樣覺得。（練習模式，不會真的算進去）", el: q("#chat .done") },
+      { t: "關掉小幫手", b: "點右上角的 ×。", do: true, el: q("#phone-x") },
+      { t: "🔍 去探索一個路口", b: "虛線路口回報還少，市府不知道那裡好不好走。<b>點清單裡的第一個</b>。", do: true,
+        el: q(".sec.explore .brow"), act: function () { renderOverview(); fitAll(true); } },
+      { t: "告訴我們這裡怎麼樣", b: "假裝你剛經過這裡，<b>點「還好，沒問題」</b>就完成探索。", do: true, el: q("#x-ok") },
+      { t: "回到首頁", b: "點「← 回到全部路口」。", do: true, el: q("#back") },
+      { t: "看你的成就", b: "剛剛的探索讓你得到點數，還解鎖了徽章。<b>點這張卡</b>。", do: true, el: q("#achopen") },
+      { t: "戴上新頭銜", b: "解鎖的徽章可以當頭銜，留言旁大家都看得到。<b>點「戴上這個頭銜」</b>。", do: true, el: q("[data-eq]") },
+      { t: "進階：切到「兩者對照」", b: "最後看事故和回報有沒有落差。<b>點「兩者對照」</b>。", do: true, el: q('[data-layer="compare"]'), act: function () { renderOverview(); } },
+      { t: "讀散布圖", b: "每個點是一個路口：<b>左上</b>＝大家覺得危險但還沒出事，<b>右下</b>＝常出事卻少人回報。<b>點左上的任一個點</b>試試。", do: true, el: q("#scatcard .scatter") },
+      { t: "練習完成！", b: "你已經走完一次：找路口 → 回報 → 探索 → 收集徽章 → 讀散布圖。<br>剛剛的操作都會還原。隨時按右上角 ? 可以再練習一次。" }
     ],
     gov: [
-      { t: "市府端是什麼？", b: "<p>承辦人員每個月打開這一頁，就看到<b>本月要處理的案件</b>。系統已經把散落的回報合成一案、寫好 AI 摘要、建議權責單位。</p><p>案件數由名額控制：各區前 3 名＋急件，不會因為回報暴增而壓垮承辦。</p>" },
-      { t: "第 1 步：看本月處理順序", b: "<p>最上面的「本月處理順序」告訴你先處理哪一件，規則看得到：</p><ol class=\"plain\"><li>近三年有死亡事故</li><li>急件</li><li>事故排名和回報排名的平均（0＝最少，100＝最多）</li></ol><p class=\"note\">順序只決定先後，不改變哪些案件進來。</p>" },
-      { t: "第 2 步：讀案件卡", b: "<ul class=\"plain\"><li><b>AI 摘要</b>：幾十筆回報濃縮成一段話。</li><li><b>具體原因</b>：例如視線被擋 → 轉角變電箱，旁邊標出對應的單位。</li><li><b>回報人數</b>（示意）和<b>近三年事故、死亡</b>（真實）。</li></ul>" },
-      { t: "第 3 步：確認權責、派案進 1999", b: "<ul class=\"plain\"><li>AI 依「原因→權責單位」對照表建議主責和協辦，承辦可以換主責、加減單位。</li><li>按「確認派案」就在 1999 開一張案件（Open311 格式），局處照原本流程收案。</li><li>局處覺得不是自己管的，可以<b>寫理由退回</b>並建議改派；退回理由會整理成對照表的修正建議。</li></ul>" },
-      { t: "第 4 步：更新進度、登錄完工", b: "<ul class=\"plain\"><li>處理進度：已收到 → 現勘中 → 已排程（填預計月份）→ 改善中，市民同步看得到。</li><li>這個月做不完可以「延到下個月」，但要寫理由，市民也看得到。</li><li>「登錄完工」後開放市民說「這裡變好了」，一個月後回診。</li></ul>" },
-      { t: "第 5 步：提醒與主動查看", b: "<ul class=\"plain\"><li><b>↑ 最近變多</b>：回報總數還少、但最近突然變多的路口，建議趁事故累積前先現勘。</li><li><b>散布圖</b>（地圖右上）：找出事故和回報落差大的路口。</li><li>點地圖上<b>任何一個路口</b>都能看摘要，判斷需要就主動列入本月。</li></ul>" },
-      { t: "第 6 步：看成效、轉達感謝", b: "<ul class=\"plain\"><li>改善前後比較每月回報人數，降到一半以下算明顯減少，否則建議再現勘。</li><li>市民說「變好了」的感謝，每月彙整轉給負責單位的主管。</li><li>AI 建議和承辦決定不同時會留下紀錄，方便主管查核、改進 AI。</li></ul>" }
+      { t: "來練習一次承辦流程", b: "你會<b>自己動手</b>處理一個案件：看順序、確認權責、派案進 1999、局處退回、改派、更新進度。<br><b>這是練習模式</b>，結束後全部還原。",
+        act: function () { if (window.GovView && S.view !== "gov") window.GovView.setView("gov"); } },
+      { t: "1. 本月處理順序", b: "規則看得到：① 近三年有死亡事故 ② 急件 ③ 事故和回報排名的平均。只決定先後，不改變哪些案件進來。", el: q(".prio") },
+      { t: "2. 讀案件卡", b: "AI 把幾十筆回報濃縮成摘要，列出具體原因、回報人數（示意）和事故、死亡（真實）。", el: inCase(".case-ai") },
+      { t: "3. 確認權責單位", b: "AI 依對照表建議主責和協辦，可以換主責、加減單位。這次照 AI 建議就好。", el: inCase(".case-owners") },
+      { t: "4. 確認派案", b: "<b>點「確認派案」</b>，系統會在 1999 開一張案件。", do: true, el: inCase('[data-act="dispatch"]') },
+      { t: "已經進 1999 了", b: "這裡看得到 1999 案號，也可以展開看送進 1999 的資料（Open311 格式）。", el: inCase(".dispatch") },
+      { t: "5. 換你當局處：退回", b: "假設局處覺得這不是自己管的。<b>點「以…身分退回改派」</b>。", do: true, el: inCase('[data-act="return"]') },
+      { t: "寫退回理由", b: "退回<b>一定要寫理由</b>，不能放著不處理。隨便寫一句（例如「這段是省道」），選一個建議單位，再按「退回派案窗口」。",
+        until: function () { var c = firstCase(); return c && c.querySelector(".returned"); }, el: inCase(".case-area") },
+      { t: "6. 回到派案窗口：改派", b: "退回理由會整理成對照表的修正建議。<b>點「改派給…」</b>（沒選建議單位就點「確認派案」）重新派案。", do: true, el: function () { return inCase('[data-act="reassign"]')() || inCase('[data-act="dispatch"]')(); } },
+      { t: "7. 更新處理進度", b: "<b>從選單換一個進度</b>（例如「現勘中」），市民那邊會同步看到。", act: function () { var s = inCase(".stg")(); G.stage0 = s && s.value; },
+        until: function () { var s = inCase(".stg")(); return s && s.value !== G.stage0; }, el: inCase(".stg") },
+      { t: "8. 完工之後", b: "完工按「登錄完工」，市民就能說「這裡變好了」，一個月後回診。這一步練習先略過。", el: inCase(".case-actions") },
+      { t: "9. 散布圖找落差", b: "事故和回報落差大的路口一眼看出來，點一個點就會打開那個案件。", el: q("#scatcard") },
+      { t: "練習完成！", b: "你已經處理完一個案件：看順序 → 派案進 1999 → 退回 → 改派 → 更新進度。剛剛的操作都會還原，隨時按 ? 再練一次。" }
     ]
   };
-  var G = { set: "citizen", i: 0 };
+  var G = { set: "citizen", i: 0, timer: null, snap: null };
+  /* 練習模式：存一份快照，導覽結束後還原；期間的回報紀錄與頭銜只放在記憶裡 */
+  function practiceStart() {
+    G.snap = { locs: JSON.stringify(S.locs), me: S.me, view: S.view, layer: S.layer, gov: window.GovView && window.GovView.snapshot ? window.GovView.snapshot() : null };
+    S.practice = { hist: myHistory().slice(), eq: equippedId() };
+  }
+  function practiceEnd() {
+    if (!G.snap) return;
+    JSON.parse(G.snap.locs).forEach(function (o, i) { var L = S.locs[i]; Object.keys(L).forEach(function (k) { delete L[k]; }); Object.keys(o).forEach(function (k) { L[k] = o[k]; }); });
+    S.me = G.snap.me; S.practice = null;
+    if (G.snap.gov) window.GovView.restore(G.snap.gov);
+    if (!$("phone").hidden) R.close();
+    var view = G.snap.view; G.snap = null;
+    if (window.GovView) window.GovView.setView(view);
+    setLayer("reports");
+    if (view !== "gov") renderOverview();
+  }
   function openGuide(start) {
     G.set = S.view === "gov" ? "gov" : "citizen"; G.i = start || 0;
     var el = $("guide");
     if (!el) {
-      el = document.createElement("div"); el.id = "guide"; el.className = "guide"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-labelledby", "guide-t");
-      el.addEventListener("click", function (e) { if (e.target === el) closeGuide(); });
+      el = document.createElement("div"); el.id = "guide"; el.className = "tour";
+      el.innerHTML = '<div class="t-bk" data-s="t"></div><div class="t-bk" data-s="b"></div><div class="t-bk" data-s="l"></div><div class="t-bk" data-s="r"></div>' +
+        '<div class="t-hole" id="t-hole"></div><div class="t-tap" id="t-tap" aria-hidden="true">👆</div><div class="t-flag">練習模式・不會真的送出</div>' +
+        '<div class="t-tip" id="t-tip" role="dialog" aria-modal="false" aria-labelledby="guide-t"></div>';
       document.body.appendChild(el);
+      // 使用者點到光圈裡的目標：讓原本的功能先跑，再進下一步
+      document.addEventListener("click", function (e) {
+        if (el.hidden) return;
+        var st = TOUR[G.set][G.i], t = st.do && st.el && st.el();
+        if (t && (t === e.target || t.contains(e.target))) setTimeout(next, 650);
+      }, true);
     }
-    el.hidden = false; drawGuide();
+    if (!G.snap) practiceStart();
+    el.hidden = false; runStep();
+    clearInterval(G.timer);
+    G.timer = setInterval(function () {  // 畫面會重畫，持續追著目標；until 步驟達成就前進
+      if (el.hidden) return;
+      var st = TOUR[G.set][G.i];
+      if (st.until && st.until() && !G.waiting) { G.waiting = true; setTimeout(function () { G.waiting = false; next(); }, 700); }
+      place();
+    }, 300);
   }
-  function closeGuide() { var el = $("guide"); if (el) el.hidden = true; }
-  function drawGuide() {
-    var pages = GUIDE[G.set], p = pages[G.i], last = G.i === pages.length - 1;
-    $("guide").innerHTML = '<div class="gbox"><div class="ghead"><span class="eyebrow">使用說明・' + (G.set === "gov" ? "市府端" : "市民端") + "</span><button class=\"x\" id=\"g-x\" type=\"button\" aria-label=\"關閉\">×</button></div>" +
-      '<h2 id="guide-t">' + p.t + '</h2><div class="gbody">' + p.b + "</div>" +
-      '<div class="gfoot"><button class="btn" id="g-prev" type="button"' + (G.i ? "" : " disabled") + '>上一頁</button>' +
-      '<span class="gdots">' + pages.map(function (_, k) { return '<button type="button" class="gd' + (k === G.i ? " on" : "") + '" data-k="' + k + '" aria-label="第 ' + (k + 1) + ' 頁"></button>'; }).join("") + "</span>" +
-      '<button class="btn primary" id="g-next" type="button">' + (last ? "開始使用" : "下一頁") + "</button></div></div>";
+  function next() { var n = TOUR[G.set].length; if (G.i < n - 1) { G.i += 1; runStep(); } }
+  function closeGuide() {
+    var el = $("guide"); if (el) el.hidden = true;
+    clearInterval(G.timer);
+    practiceEnd();
+  }
+  function runStep() {
+    var st = TOUR[G.set][G.i];
+    $("t-tip").classList.add("moving");
+    if (st.act) st.act();
+    setTimeout(function () {
+      var t = st.el && st.el();
+      if (t && t.scrollIntoView) {
+        if ($("panel").contains(t)) $("panel").classList.add("expanded");
+        if ($("panel").contains(t)) t.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+      setTimeout(function () { drawTip(); place(); $("t-tip").classList.remove("moving"); }, 380);
+    }, st.wait || 260);
+  }
+  function drawTip() {
+    var steps = TOUR[G.set], st = steps[G.i], last = G.i === steps.length - 1, act = st.do || st.until;
+    $("t-tip").innerHTML = '<div class="ghead"><span class="eyebrow">練習導覽・' + (G.set === "gov" ? "市府端" : "市民端") + "・" + (G.i + 1) + " / " + steps.length + '</span><button class="x" id="g-x" type="button" aria-label="結束導覽">×</button></div>' +
+      '<h2 id="guide-t">' + (act ? '<span class="t-do">換你</span>' : "") + st.t + '</h2><div class="gbody">' + st.b + "</div>" +
+      '<div class="gfoot"><button class="btn" id="g-prev" type="button"' + (G.i ? "" : " disabled") + '>上一步</button>' +
+      '<span class="gdots">' + steps.map(function (_, k) { return '<i class="gd' + (k === G.i ? " on" : k < G.i ? " done" : "") + '"></i>'; }).join("") + "</span>" +
+      (act ? '<button class="btn ghost" id="g-next" type="button">跳過這步</button>' : '<button class="btn primary" id="g-next" type="button">' + (last ? "結束練習" : "下一步") + "</button>") + "</div>";
     $("g-x").addEventListener("click", closeGuide);
-    $("g-prev").addEventListener("click", function () { G.i = Math.max(0, G.i - 1); drawGuide(); });
-    $("g-next").addEventListener("click", function () { if (last) closeGuide(); else { G.i += 1; drawGuide(); } });
-    $("guide").querySelectorAll(".gd").forEach(function (b) { b.addEventListener("click", function () { G.i = +b.dataset.k; drawGuide(); }); });
-    $("g-next").focus();
+    $("g-prev").addEventListener("click", function () { G.i = Math.max(0, G.i - 1); runStep(); });
+    $("g-next").addEventListener("click", function () { if (last) closeGuide(); else next(); });
   }
+  /* 光圈框住目標，四周擋住別的操作（光圈裡可以點）；說明卡放在旁邊放得下的地方 */
+  function place() {
+    var st = TOUR[G.set][G.i], t = st.el && st.el(), hole = $("t-hole"), tip = $("t-tip"), tap = $("t-tap");
+    var W = window.innerWidth, H = window.innerHeight, narrow = W <= 820, pad = 6;
+    var r = t && t.getBoundingClientRect ? t.getBoundingClientRect() : null;
+    if (r && (r.width === 0 || r.bottom < 0 || r.top > H)) r = null;
+    var x = W / 2, y = H / 2, w = 0, h = 0;
+    if (r) { x = Math.max(2, r.left - pad); y = Math.max(2, r.top - pad); w = Math.min(W - 2, r.right + pad) - x; h = Math.min(H - 2, r.bottom + pad) - y; }
+    hole.style.cssText = "left:" + x + "px;top:" + y + "px;width:" + w + "px;height:" + h + "px";
+    hole.classList.toggle("act", !!(st.do || st.until));
+    var bk = $("guide").querySelectorAll(".t-bk"), open = !!(r && (st.do || st.until));
+    // 不用動手的步驟整個畫面都擋住；要動手的步驟只擋光圈以外
+    var X = open ? x : W, Y = open ? y : H, Wd = open ? w : 0, Hd = open ? h : 0;
+    bk[0].style.cssText = "left:0;top:0;width:" + W + "px;height:" + (open ? Y : H) + "px";
+    bk[1].style.cssText = "left:0;top:" + (Y + Hd) + "px;width:" + W + "px;height:" + Math.max(0, H - Y - Hd) + "px";
+    bk[2].style.cssText = "left:0;top:" + Y + "px;width:" + X + "px;height:" + Hd + "px";
+    bk[3].style.cssText = "left:" + (X + Wd) + "px;top:" + Y + "px;width:" + Math.max(0, W - X - Wd) + "px;height:" + Hd + "px";
+    tap.style.cssText = r && st.do ? "left:" + (r.left + r.width / 2 - 12) + "px;top:" + (r.top + Math.min(r.height / 2, 40)) + "px;opacity:1" : "opacity:0";
+    var tw = Math.min(360, W - 24), th = tip.offsetHeight || 220, L, T;
+    if (narrow || !r) {
+      L = (W - tw) / 2;
+      T = !r ? (H - th) / 2 : (r.top + r.height / 2 > H / 2 ? 12 : H - th - 12);
+    } else if (r.right + 16 + tw < W) { L = r.right + 16; T = r.top; }
+    else if (r.left - 16 - tw > 0) { L = r.left - 16 - tw; T = r.top; }
+    else { L = Math.min(Math.max(12, r.left), W - tw - 12); T = r.bottom + 14 + th < H ? r.bottom + 14 : Math.max(12, r.top - th - 14); }
+    if (!narrow && r && r.width > W * 0.45 && r.height > H * 0.5) { L = r.left + 16; T = H - th - 28; }
+    T = Math.min(Math.max(12, T), H - th - 12);
+    tip.style.cssText = "width:" + tw + "px;left:" + L + "px;top:" + T + "px";
+  }
+
   /* ---------------- 徽章圖鑑與頭銜 ----------------
      先放 7 個示範徽章，之後可以一直加（通學路守護者、夜間巡守員…）。圖是自己畫的 SVG，不用網路圖片。 */
   var BADGES = [
@@ -770,8 +877,8 @@
       '<circle cx="50" cy="50" r="40" fill="none" stroke="#2D3446" stroke-width="1.5" stroke-dasharray="2 4" opacity=".25"/>' + ART[b.art] + "</svg>";
   }
   var EQ_KEY = "taoguo-title-";
-  function equippedId() { try { var st = histStore(); return st ? st.getItem(EQ_KEY + histId()) : null; } catch (e) { return null; } }
-  function setEquipped(id) { try { var st = histStore(); if (st) st.setItem(EQ_KEY + histId(), id); } catch (e) {} }
+  function equippedId() { if (S.practice) return S.practice.eq; try { var st = histStore(); return st ? st.getItem(EQ_KEY + histId()) : null; } catch (e) { return null; } }
+  function setEquipped(id) { if (S.practice) { S.practice.eq = id; return; } try { var st = histStore(); if (st) st.setItem(EQ_KEY + histId(), id); } catch (e) {} }
   /* 目前戴的頭銜：自己選的（要已解鎖），沒選就用點數等級最高的那個 */
   function myBadge(im) {
     im = im || impactOf();
@@ -1373,7 +1480,7 @@
   }
   window.DemoApp = { state: S, select: select, setLayer: setLayer, report: R, mapStyle: mapStyle,
     util: { canPraise: canPraise, progressLabel: progressLabel, esc: esc, summaryOf: summaryOf, careBadge: careBadge, ownerOf: ownerOf, hasUpdate: hasUpdate, perMonth: perMonth,
-            renderMarkers: renderMarkers, renderOverview: renderOverview, openGuide: openGuide, refresh: refresh, pulse: pulse, careText: careText,
+            renderMarkers: renderMarkers, renderOverview: renderOverview, openGuide: openGuide, tourState: function () { return { i: G.i, set: G.set, st: TOUR[G.set][G.i], open: $("guide") && !$("guide").hidden }; }, refresh: refresh, pulse: pulse, careText: careText,
             risingOf: risingOf, trendNumbers: trendNumbers, RISE_TAG: RISE_TAG, ranks: ranks, setScat: setScat, deadTag: deadTag } };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
