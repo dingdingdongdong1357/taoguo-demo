@@ -164,6 +164,7 @@
       '<p class="eyebrow">DEMO ・ 市府端（承辦人員）</p>' +
       '<h1 class="ptitle">' + t.label + "・本月案件</h1>" +
       '<p class="lede">系統每月把市民回報整理成案件：同一個路口合併成一案，AI 寫好摘要並建議權責單位。承辦不用逐筆看回報；權責單位和本月要不要處理，承辦都可以手動調整。</p>' +
+      '<p class="note">第一次用？按 <button type="button" class="qmark inline" id="govhelp" aria-label="市府端使用說明">?</button> 看六步驟操作說明。</p>' +
       '<div class="stats"><div class="stat"><b>' + cases.length + '</b><span>本月送審</span></div>' +
       '<div class="stat"><b>' + cases.filter(function (L) { return !L.dispatched; }).length + '</b><span>待派案</span></div>' +
       '<div class="stat"><b>' + cases.filter(function (L) { return L.owners.length >= 3; }).length + '</b><span>建議會勘</span></div>' +
@@ -194,6 +195,7 @@
       }).join("") + "</ul></div>" +
       '<div class="sec"><p class="note"><b>資料說明</b>　回報、案件、摘要、權責單位與 1999 案號皆為示意資料；事故件數為桃園市政府開放資料。</p></div>';
     $("pin").innerHTML = html;
+    $("govhelp").addEventListener("click", function () { U.openGuide(0); });
     $("pin").querySelectorAll("[data-go]").forEach(function (b) {
       b.addEventListener("click", function () {
         var L = S.byId[b.dataset.go];

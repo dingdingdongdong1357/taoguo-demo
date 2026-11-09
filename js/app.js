@@ -525,8 +525,8 @@
       '<h1 class="ptitle">哪裡讓人「差一點」出事？</h1>' +
       '<p class="lede">市民回報差點出事的路口，其他人可以按「我也遇過」。地圖把市民的經驗和真實事故放在一起看，找出還沒出事、但大家都覺得危險的地方。</p>' +
       '<div class="findbox"><p class="b-label">先找到你關心的路口</p><div class="findrow"><div class="search"><input id="q" type="search" autocomplete="off" placeholder="搜尋路名，例如：延平路" aria-label="搜尋路名"><ul class="qres" id="qres"></ul></div>' +
-      '<button type="button" class="btn" id="nearp">📍 我附近</button></div><p class="note">或直接點地圖上的圓圈；右上角「＋ 我要回報」可以體驗回報流程。</p></div>' +
-      impactHTML() +
+      '<button type="button" class="btn" id="nearp">📍 我附近</button></div><p class="note">或直接點地圖上的圓圈。第一次用？按右上角 <button type="button" class="qmark inline" id="helpinline" aria-label="使用說明">?</button> 一頁一頁看介紹。</p></div>' +
+      achCardHTML() +
       '<div class="sec"><div class="sec-h"><h3>三種路口</h3><span class="src">事故（真實）× 回報（示意）</span></div><div class="quadgrid">' +
       ["prevent", "priority", "calm"].map(function (k) {
         var q = QUAD[k];
@@ -558,6 +558,8 @@
     $("pin").querySelectorAll(".btabs button").forEach(function (b) { b.addEventListener("click", function () { S.board = b.dataset.d; renderOverview(); }); });
     bindScatter($("pin"));
     $("nearp").addEventListener("click", openNearby);
+    $("achopen").addEventListener("click", renderAchievements);
+    $("helpinline").addEventListener("click", function () { openGuide(0); });
     $("deep").addEventListener("toggle", function () { S.deepOpen = this.open; });
     $("pin").querySelectorAll(".qcard").forEach(function (b) {
       b.addEventListener("click", function () {
@@ -642,16 +644,106 @@
       '<div class="xprog"><span style="width:' + Math.round(done / list.length * 100) + '%"></span></div><p class="note">你已探索 <b>' + done + "</b> / " + list.length + " 個</p>" +
       '<ol class="board">' + list.slice(0, 5).map(function (L) {
         return '<li><button class="brow" data-id="' + L.id + '">' + careBadge(L, 24) + '<span class="nm">' + esc(L.name) + deadTag(L) + '<small class="note">近三年事故 ' + L.real.acc_recent + " 件・回報 " + L.reports.concern + " 人</small></span>" +
-          (explored(L) ? '<span class="xtag done">已探索</span>' : '<span class="xtag">待探索</span>') + "</button></li>";
+          (explored(L) ? '<span class="xtag ok">已探索</span>' : '<span class="xtag">待探索</span>') + "</button></li>";
       }).join("") + "</ol></div>";
   }
   function exploreCardHTML(L) {
     if (L.care !== "few" || L.improved) return "";
     var mine = myHistory().filter(function (h) { return h.loc === L.id && h.mode === "explore"; }).pop();
-    if (mine) return '<div class="xcard done"><b>🔍 你探索過這裡</b><p>' + mmdd(mine.date) + " 你說「" + (mine.result === "ok" ? "還好" : "要注意") + "」，影響力 +1。謝謝你幫地圖補上資料！</p></div>";
+    if (mine) return '<div class="xcard done"><b>🔍 你探索過這裡</b><p>' + mmdd(mine.date) + " 你說「" + (mine.result === "ok" ? "還好" : "要注意") + "」，影響力 +1。謝謝你幫地圖補上資料！到首頁「🏅 我的成就」看你的稱號。</p></div>";
     return '<div class="xcard"><b>🔍 待探索：這裡回報還少</b><p>市府還不知道這個路口好不好走。你經過這裡嗎？覺得怎麼樣？</p>' +
       '<div class="actions"><button class="btn" id="x-ok">還好，沒問題</button><button class="btn primary" id="x-warn">要注意</button></div>' +
       '<p class="note">正式版要在路口 100 公尺內（手機定位）才能探索，每個路口一次。</p></div>';
+  }
+  /* ---------------- 我的成就：稱號收集 + 計點規則（不用先回報就看得到） ---------------- */
+  var TITLE_DESC = {
+    "路過的人": "剛開始。回報或探索一個路口就能累積點數。",
+    "路口觀察員": "開始幫地圖補資料，你的回報有人確認。",
+    "街區守護者": "你關心的路口送到市府，或已經改善。",
+    "中壢守護者": "長期守護一個地區，回報、探索、回診都有做到。"
+  };
+  function achCardHTML() {
+    var im = impactOf();
+    return '<button class="achcard" id="achopen" type="button"><span class="ach-ic">🏅</span><span class="ach-tx"><b>我的成就：' + im.pts + " 點・" + esc(im.title) + "</b>" +
+      "<small>" + (im.next ? "再 " + (im.next[0] - im.pts) + " 點解鎖「" + esc(im.next[1]) + "」・" : "") + "看稱號收集與計點規則 →</small></span></button>";
+  }
+  function renderAchievements() {
+    S.sel = null;
+    var im = impactOf();
+    var html = '<button class="back" id="back">← 回到全部路口</button>' +
+      '<p class="eyebrow">我的成就</p><h1 class="ptitle">' + im.pts + " 點・" + esc(im.title) + "</h1>" +
+      '<p class="lede">點數只算「有用」的貢獻：你的回報被別人確認、送到市府、真的改善，或你幫忙探索資訊不足的路口。亂報、重複報不會加分。</p>' +
+      '<div class="sec"><div class="sec-h"><h3>稱號收集（' + TITLES.filter(function (t) { return im.pts >= t[0]; }).length + " / " + TITLES.length + '）</h3><span class="badge mock">示意</span></div><ol class="titles">' +
+      TITLES.map(function (t) {
+        var on = im.pts >= t[0];
+        return '<li class="' + (on ? "on" : "") + '"><span class="t-ic">' + (on ? "🏅" : "🔒") + '</span><span class="t-tx"><b>' + esc(t[1]) + "</b><small>" + (t[0] ? t[0] + " 點解鎖・" : "") + esc(TITLE_DESC[t[1]]) + "</small></span>" +
+          (on ? '<span class="xtag ok">已解鎖</span>' : '<span class="xtag">還差 ' + (t[0] - im.pts) + " 點</span>") + "</li>";
+      }).join("") + "</ol></div>" +
+      '<div class="sec"><div class="sec-h"><h3>怎麼得到點數</h3></div><table class="rules"><tr><th>做了什麼</th><th>點數</th><th>你目前</th></tr>' +
+      IMPACT_RULES.map(function (r) { return "<tr" + (im.got[r[0]] ? ' class="on"' : "") + "><td>" + esc(r[2]) + '</td><td class="mono">+' + r[1] + '</td><td class="mono">' + im.got[r[0]] + " 次</td></tr>"; }).join("") +
+      "</table></div>" +
+      '<div class="sec"><div class="sec-h"><h3>為什麼亂報拿不到分</h3></div><ul class="plain">' +
+      "<li>同一個 LINE 帳號、同一個路口只算一次；再回報只能補充內容。</li>" +
+      "<li>只按「回報」不給分，要有其他人也遇過、送到市府或改善完成才給。</li>" +
+      "<li>探索要人在路口 100 公尺內（正式版用手機定位確認）。</li>" +
+      "<li>承辦可以標記不實回報，被標記的回報不計分。</li></ul></div>" +
+      '<div class="sec"><div class="sec-h"><h3>和鄰里一起玩</h3></div><p class="note">正式版會公布各里的探索數和改善後確認數，比的是「里」不是個人，里長可以辦「路口探索日」帶大家一起走。實體獎勵會再和市府、里辦公處合作。</p></div>' +
+      (myHistory().length ? impactHTML() : '<div class="sec"><p class="note">你還沒有回報或探索。可以先從首頁的「🔍 待探索路口」開始。</p></div>');
+    $("pin").innerHTML = html;
+    $("back").addEventListener("click", function () { renderOverview(); });
+    $("pin").querySelectorAll(".brow").forEach(function (b) { b.addEventListener("click", function () { select(b.dataset.id, true); }); });
+    $("panel").classList.add("expanded");
+    $("panel").scrollTop = 0;
+  }
+
+  /* ---------------- 使用說明：按 ? 一頁一頁看，由淺入深 ---------------- */
+  var cbx = function (cls, t) { return '<span class="cb ' + cls + '" style="width:26px;height:26px;font-size:10px">' + t + "</span>"; };
+  var GUIDE = {
+    citizen: [
+      { t: "桃過一劫是什麼？", b: "<p>市民回報「差點出事」的路口，和警察局的真實事故放在同一張地圖上，<b>在出事之前</b>找出危險的路口。</p><p class=\"note\">地圖上的事故是真實資料；回報、留言、市府進度是示意資料，用來展示系統怎麼運作。</p>" },
+      { t: "第 1 步：找到你關心的路口", b: "<ul class=\"plain\"><li><b>搜尋路名</b>：首頁最上面的搜尋框。</li><li><b>📍 我附近</b>：用手機定位，列出 500 公尺到 2 公里內的路口，預設<b>最危險的排前面</b>（先比死亡事故，再比事故件數）。</li><li>或直接<b>點地圖上的圓圈</b>。</li></ul>" },
+      { t: "第 2 步：看懂地圖上的圓圈", b: "<p>一個圓圈＝一個路口，<b>數字和大小＝回報人數</b>。</p><ul class=\"plain icons\"><li>" + cbx("care-many", "54") + "深色實心：很多人關心</li><li>" + cbx("care-some", "21") + "白底粗框：有人關心</li><li>" + cbx("care-few", "4") + "虛線：回報還少，<b>資訊不夠，不代表安全</b></li><li>" + cbx("care-few improved", "✓") + "打勾：改善後多數人說變好了</li></ul><p>角落的小標籤：<i class=\"a1b static\">亡 1</i>近三年死亡事故件數、<i class=\"rtb static\">急</i>急件、<i class=\"rsb static\">↑</i>最近變多、<i class=\"mineb static\">我</i>你回報過、🔍 現勘中、🚧 施工中。</p>" },
+      { t: "第 3 步：打開路口小檔案", b: "<p>點一個圓圈，右邊會出現這個路口的小檔案。<b>最上面的摘要卡</b>一眼告訴你：</p><ul class=\"plain\"><li>近三年事故幾件、死亡幾件（真實資料）</li><li>多少人回報要注意、市府處理到哪</li><li>一句白話結論：這裡為什麼危險、大家最常遇到什麼</li></ul><p>往下捲還有：什麼時候、遇到什麼、是什麼樣的事故（撞到行人、機車…）、最近有沒有變多。</p>" },
+      { t: "第 4 步：回報或按「我也遇過」", b: "<ul class=\"plain\"><li>右上角「＋ 我要回報」：全部用點的，大約 60 秒。</li><li>別人回報過的路口，按「<b>我也遇過</b>」就好，畫面會告訴你「你是第幾位」。</li><li>一個 LINE 帳號、一個路口只算一次。</li><li>緊急狀況（大坑洞、號誌全滅）請直接打 1999，有人受傷打 110／119。</li></ul>" },
+      { t: "第 5 步：🔍 待探索路口（尋寶）", b: "<p>虛線的路口回報還少，市府不知道那裡好不好走。首頁有「🔍 待探索路口」清單，<b>事故多但回報少的排前面</b>。</p><p>經過時打開那個路口，按「還好，沒問題」或「要注意」就完成探索，幫地圖補上資料缺口。</p>" },
+      { t: "第 6 步：點數與稱號怎麼算", b: "<table class=\"rules\"><tr><th>做了什麼</th><th>點數</th></tr>" + IMPACT_RULES.map(function (r) { return "<tr><td>" + r[2] + "</td><td class=\"mono\">+" + r[1] + "</td></tr>"; }).join("") + "</table><p>稱號：" + TITLES.map(function (t) { return t[1] + (t[0] ? "（" + t[0] + " 點）" : ""); }).join(" → ") + "。</p><p class=\"note\">只算有用的貢獻，同一個路口只算一次，亂報不會加分。首頁的「🏅 我的成就」看得到你收集的稱號。</p>" },
+      { t: "進階：兩者對照與散布圖", b: "<p>地圖左上切到「<b>兩者對照</b>」，路口分成三種：危險（事故多）、潛在危險（事故少但很多人覺得危險）、相對安全。</p><p>同時會打開<b>散布圖</b>：每個點是一個路口，橫軸是事故排名、縱軸是回報排名。兩邊一致就在斜線上；<b>左上</b>＝大家覺得危險但還沒出事，<b>右下</b>＝常出事卻少人回報。點一個點，地圖會跳到那個路口。</p>" },
+      { t: "進階：回報怎麼送到市府", b: "<ul class=\"plain\"><li>同一個路口 35 公尺內的回報合成一案。</li><li>每個行政區每月前 3 名送市府，每區名額一樣。</li><li>人數還少但有急迫訊號（最近變多、曾經擦撞附照片）走「急件」，每區每月最多 1 件。</li><li>市府更新進度時你會收到通知；改善後一個月回診，問你有沒有變好。</li></ul><p class=\"note\">首頁的「深入看看」有各區排行、最近變多、落差最大的路口。</p>" }
+    ],
+    gov: [
+      { t: "市府端是什麼？", b: "<p>承辦人員每個月打開這一頁，就看到<b>本月要處理的案件</b>。系統已經把散落的回報合成一案、寫好 AI 摘要、建議權責單位。</p><p>案件數由名額控制：各區前 3 名＋急件，不會因為回報暴增而壓垮承辦。</p>" },
+      { t: "第 1 步：看本月處理順序", b: "<p>最上面的「本月處理順序」告訴你先處理哪一件，規則看得到：</p><ol class=\"plain\"><li>近三年有死亡事故</li><li>急件</li><li>事故排名和回報排名的平均（0＝最少，100＝最多）</li></ol><p class=\"note\">順序只決定先後，不改變哪些案件進來。</p>" },
+      { t: "第 2 步：讀案件卡", b: "<ul class=\"plain\"><li><b>AI 摘要</b>：幾十筆回報濃縮成一段話。</li><li><b>具體原因</b>：例如視線被擋 → 轉角變電箱，旁邊標出對應的單位。</li><li><b>回報人數</b>（示意）和<b>近三年事故、死亡</b>（真實）。</li></ul>" },
+      { t: "第 3 步：確認權責、派案進 1999", b: "<ul class=\"plain\"><li>AI 依「原因→權責單位」對照表建議主責和協辦，承辦可以換主責、加減單位。</li><li>按「確認派案」就在 1999 開一張案件（Open311 格式），局處照原本流程收案。</li><li>局處覺得不是自己管的，可以<b>寫理由退回</b>並建議改派；退回理由會整理成對照表的修正建議。</li></ul>" },
+      { t: "第 4 步：更新進度、登錄完工", b: "<ul class=\"plain\"><li>處理進度：已收到 → 現勘中 → 已排程（填預計月份）→ 改善中，市民同步看得到。</li><li>這個月做不完可以「延到下個月」，但要寫理由，市民也看得到。</li><li>「登錄完工」後開放市民說「這裡變好了」，一個月後回診。</li></ul>" },
+      { t: "第 5 步：提醒與主動查看", b: "<ul class=\"plain\"><li><b>↑ 最近變多</b>：回報總數還少、但最近突然變多的路口，建議趁事故累積前先現勘。</li><li><b>散布圖</b>（地圖右上）：找出事故和回報落差大的路口。</li><li>點地圖上<b>任何一個路口</b>都能看摘要，判斷需要就主動列入本月。</li></ul>" },
+      { t: "第 6 步：看成效、轉達感謝", b: "<ul class=\"plain\"><li>改善前後比較每月回報人數，降到一半以下算明顯減少，否則建議再現勘。</li><li>市民說「變好了」的感謝，每月彙整轉給負責單位的主管。</li><li>AI 建議和承辦決定不同時會留下紀錄，方便主管查核、改進 AI。</li></ul>" }
+    ]
+  };
+  var G = { set: "citizen", i: 0 };
+  function openGuide(start) {
+    G.set = S.view === "gov" ? "gov" : "citizen"; G.i = start || 0;
+    var el = $("guide");
+    if (!el) {
+      el = document.createElement("div"); el.id = "guide"; el.className = "guide"; el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-labelledby", "guide-t");
+      el.addEventListener("click", function (e) { if (e.target === el) closeGuide(); });
+      document.body.appendChild(el);
+    }
+    el.hidden = false; drawGuide();
+  }
+  function closeGuide() { var el = $("guide"); if (el) el.hidden = true; }
+  function drawGuide() {
+    var pages = GUIDE[G.set], p = pages[G.i], last = G.i === pages.length - 1;
+    $("guide").innerHTML = '<div class="gbox"><div class="ghead"><span class="eyebrow">使用說明・' + (G.set === "gov" ? "市府端" : "市民端") + "</span><button class=\"x\" id=\"g-x\" type=\"button\" aria-label=\"關閉\">×</button></div>" +
+      '<h2 id="guide-t">' + p.t + '</h2><div class="gbody">' + p.b + "</div>" +
+      '<div class="gfoot"><button class="btn" id="g-prev" type="button"' + (G.i ? "" : " disabled") + '>上一頁</button>' +
+      '<span class="gdots">' + pages.map(function (_, k) { return '<button type="button" class="gd' + (k === G.i ? " on" : "") + '" data-k="' + k + '" aria-label="第 ' + (k + 1) + ' 頁"></button>'; }).join("") + "</span>" +
+      '<button class="btn primary" id="g-next" type="button">' + (last ? "開始使用" : "下一頁") + "</button></div></div>";
+    $("g-x").addEventListener("click", closeGuide);
+    $("g-prev").addEventListener("click", function () { G.i = Math.max(0, G.i - 1); drawGuide(); });
+    $("g-next").addEventListener("click", function () { if (last) closeGuide(); else { G.i += 1; drawGuide(); } });
+    $("guide").querySelectorAll(".gd").forEach(function (b) { b.addEventListener("click", function () { G.i = +b.dataset.k; drawGuide(); }); });
+    $("g-next").focus();
   }
   function myHistoryHTML() {
     var list = myHistory().slice().reverse();
@@ -1184,11 +1276,16 @@
     document.querySelectorAll("#layers button").forEach(function (b) { b.addEventListener("click", function () { setLayer(b.dataset.layer); }); });
     $("report").addEventListener("click", function () { R.open({}); });
     $("near").addEventListener("click", openNearby);
+    $("help").addEventListener("click", function () { openGuide(0); });
     setScat(false);
     $("scattoggle").addEventListener("click", function () { setScat($("scatcard").classList.contains("closed")); });
     $("phone-x").addEventListener("click", R.close);
     $("handle").addEventListener("click", function () { $("panel").classList.toggle("expanded"); });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !$("phone").hidden) R.close(); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key !== "Escape") return;
+      if ($("guide") && !$("guide").hidden) { closeGuide(); return; }
+      if (!$("phone").hidden) R.close();
+    });
     var mq = window.matchMedia("(prefers-color-scheme: dark)");
     if (mq.addEventListener) mq.addEventListener("change", recolorMap);
     new MutationObserver(recolorMap).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
@@ -1211,7 +1308,7 @@
   }
   window.DemoApp = { state: S, select: select, setLayer: setLayer, report: R, mapStyle: mapStyle,
     util: { canPraise: canPraise, progressLabel: progressLabel, esc: esc, summaryOf: summaryOf, careBadge: careBadge, ownerOf: ownerOf, hasUpdate: hasUpdate, perMonth: perMonth,
-            renderMarkers: renderMarkers, renderOverview: renderOverview, refresh: refresh, pulse: pulse, careText: careText,
+            renderMarkers: renderMarkers, renderOverview: renderOverview, openGuide: openGuide, refresh: refresh, pulse: pulse, careText: careText,
             risingOf: risingOf, trendNumbers: trendNumbers, RISE_TAG: RISE_TAG, ranks: ranks, setScat: setScat, deadTag: deadTag } };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();

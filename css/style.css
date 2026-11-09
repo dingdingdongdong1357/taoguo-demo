@@ -512,7 +512,7 @@ details.deep>.stats{margin-top:8px}
 
 /* 待探索 */
 .xtag{display:inline-block;flex:none;font-size:11px;padding:1px 7px;border:1.5px dashed var(--accent);border-radius:999px;color:var(--accent);white-space:nowrap}
-.xtag.done{border-style:solid;background:var(--accent);color:#fff}
+.xtag.ok{border-style:solid;background:var(--accent);color:#fff}
 .xprog{height:8px;background:var(--soft);border-radius:999px;overflow:hidden}
 .xprog span{display:block;height:100%;background:var(--accent)}
 .xcard{display:flex;flex-direction:column;gap:6px;padding:12px;border:2px dashed var(--accent);border-radius:2px;background:color-mix(in srgb,var(--accent) 6%,var(--surface))}
@@ -530,3 +530,41 @@ details.deep>.stats{margin-top:8px}
 .chain{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:4px}
 .chain li{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
 .chain li.on{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+
+/* ? 使用說明 */
+.qmark{flex:none;display:inline-grid;place-items:center;width:32px;height:32px;border-radius:50%;border:1.5px solid var(--ink);background:var(--surface);color:var(--ink);font:700 16px/1 var(--f-body);cursor:pointer}
+.qmark:hover{background:var(--ink);color:var(--bg)}
+.qmark.inline{width:22px;height:22px;font-size:12px;vertical-align:-5px}
+body.gov .head-tags+.qmark{margin-left:0}
+.guide{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:rgba(15,18,20,.45)}
+.guide[hidden]{display:none}
+.gbox{width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;display:flex;flex-direction:column;gap:12px;padding:20px 22px;background:var(--surface);color:var(--ink);border:1.5px solid var(--ink);box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.ghead{display:flex;justify-content:space-between;align-items:center}
+.ghead .x{border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;color:var(--muted)}
+.gbox h2{margin:0;font-size:20px}
+.gbody{font-size:14.5px;line-height:1.7}
+.gbody p{margin:0 0 8px}
+.gfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px}
+.gdots{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.gd{width:9px;height:9px;padding:0;border-radius:50%;border:1px solid var(--muted);background:transparent;cursor:pointer}
+.gd.on{background:var(--ink);border-color:var(--ink)}
+ul.plain,ol.plain{margin:0 0 8px;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+ul.plain.icons{list-style:none;padding-left:0}
+ul.plain.icons li{display:flex;align-items:center;gap:8px}
+table.rules{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px}
+table.rules th,table.rules td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line)}
+table.rules tr.on td{font-weight:700}
+/* 我的成就 */
+.achcard{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:1.5px solid var(--ink);border-radius:2px;background:var(--surface);text-align:left;cursor:pointer}
+.achcard:hover{background:var(--soft)}
+.ach-ic{font-size:26px;line-height:1}
+.ach-tx{display:flex;flex-direction:column;gap:2px}
+.ach-tx small{color:var(--accent);font-size:12.5px}
+.titles{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.titles li{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px dashed var(--line);border-radius:2px;color:var(--muted)}
+.titles li.on{border-style:solid;border-color:var(--ink);color:var(--ink)}
+.t-ic{font-size:22px;line-height:1;filter:grayscale(1);opacity:.6}
+.titles li.on .t-ic{filter:none;opacity:1}
+.t-tx{flex:1;display:flex;flex-direction:column}
+.t-tx small{font-size:12px;color:var(--muted)}
+@media (max-width:480px){.qmark{width:28px;height:28px;font-size:14px}}
