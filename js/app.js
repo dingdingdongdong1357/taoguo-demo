@@ -1457,9 +1457,9 @@
     var el = document.createElement("div");
     el.id = "nudge"; el.className = "nudge"; el.setAttribute("role", "dialog"); el.setAttribute("aria-labelledby", "nudge-t");
     el.innerHTML = '<p class="nudge-t" id="nudge-t">第一次來嗎？👋</p>' +
-      '<p>按右上角的 <b class="qmark inline" aria-hidden="true">?</b>，跟著光圈自己點一遍，大約 2 分鐘就會用。練習不會真的送出。</p>' +
+      '<p>點右上角的 <b class="qmark inline" aria-hidden="true">?</b> 開啟教學模式。</p>' +
       '<label class="nudge-c"><input type="checkbox" id="nudge-off"> 之後不用再提醒我</label>' +
-      '<div class="nudge-a"><button type="button" class="btn" id="nudge-no">我先自己逛逛</button><button type="button" class="btn primary" id="nudge-go">開始練習導覽</button></div>';
+      '<div class="nudge-a"><button type="button" class="btn" id="nudge-no">先自己逛逛</button><button type="button" class="btn primary" id="nudge-go">開始教學</button></div>';
     document.body.appendChild(el);
     $("help").classList.add("pulse-q");
     var hr = $("help").getBoundingClientRect(), nb = el.getBoundingClientRect();
