@@ -664,21 +664,18 @@
   };
   function achCardHTML() {
     var im = impactOf();
-    return '<button class="achcard" id="achopen" type="button"><span class="ach-ic">🏅</span><span class="ach-tx"><b>我的成就：' + im.pts + " 點・" + esc(im.title) + "</b>" +
-      "<small>" + (im.next ? "再 " + (im.next[0] - im.pts) + " 點解鎖「" + esc(im.next[1]) + "」・" : "") + "看稱號收集與計點規則 →</small></span></button>";
+    var b = myBadge(im), n = BADGES.filter(function (x) { return x.ok(im); }).length;
+    return '<button class="achcard" id="achopen" type="button"><span class="ach-ic">' + badgeSVG(b, 44) + '</span><span class="ach-tx"><b>我的成就：' + im.pts + " 點・頭銜「" + esc(b.name) + "」</b>" +
+      "<small>徽章 " + n + " / " + BADGES.length + "・" + (im.next ? "再 " + (im.next[0] - im.pts) + " 點升級・" : "") + "看徽章圖鑑與計點規則 →</small></span></button>";
   }
   function renderAchievements() {
     S.sel = null;
     var im = impactOf();
     var html = '<button class="back" id="back">← 回到全部路口</button>' +
-      '<p class="eyebrow">我的成就</p><h1 class="ptitle">' + im.pts + " 點・" + esc(im.title) + "</h1>" +
+      playerCardHTML(im) +
       '<p class="lede">點數只算「有用」的貢獻：你的回報被別人確認、送到市府、真的改善，或你幫忙探索資訊不足的路口。亂報、重複報不會加分。</p>' +
-      '<div class="sec"><div class="sec-h"><h3>稱號收集（' + TITLES.filter(function (t) { return im.pts >= t[0]; }).length + " / " + TITLES.length + '）</h3><span class="badge mock">示意</span></div><ol class="titles">' +
-      TITLES.map(function (t) {
-        var on = im.pts >= t[0];
-        return '<li class="' + (on ? "on" : "") + '"><span class="t-ic">' + (on ? "🏅" : "🔒") + '</span><span class="t-tx"><b>' + esc(t[1]) + "</b><small>" + (t[0] ? t[0] + " 點解鎖・" : "") + esc(TITLE_DESC[t[1]]) + "</small></span>" +
-          (on ? '<span class="xtag ok">已解鎖</span>' : '<span class="xtag">還差 ' + (t[0] - im.pts) + " 點</span>") + "</li>";
-      }).join("") + "</ol></div>" +
+      '<div class="sec"><div class="sec-h"><h3>徽章圖鑑（' + BADGES.filter(function (x) { return x.ok(im); }).length + " / " + BADGES.length + '）</h3><span class="badge mock">示意</span></div>' +
+      '<p class="note">解鎖的徽章可以戴上當頭銜，你的留言和回報旁邊都會顯示。</p>' + badgeGridHTML(im) + "</div>" +
       '<div class="sec"><div class="sec-h"><h3>怎麼得到點數</h3></div><table class="rules"><tr><th>做了什麼</th><th>點數</th><th>你目前</th></tr>' +
       IMPACT_RULES.map(function (r) { return "<tr" + (im.got[r[0]] ? ' class="on"' : "") + "><td>" + esc(r[2]) + '</td><td class="mono">+' + r[1] + '</td><td class="mono">' + im.got[r[0]] + " 次</td></tr>"; }).join("") +
       "</table></div>" +
@@ -692,6 +689,7 @@
     $("pin").innerHTML = html;
     $("back").addEventListener("click", function () { renderOverview(); });
     $("pin").querySelectorAll(".brow").forEach(function (b) { b.addEventListener("click", function () { select(b.dataset.id, true); }); });
+    $("pin").querySelectorAll("[data-eq]").forEach(function (b) { b.addEventListener("click", function () { setEquipped(b.dataset.eq); var top = $("panel").scrollTop; renderAchievements(); $("panel").scrollTop = top; }); });
     $("panel").classList.add("expanded");
     $("panel").scrollTop = 0;
   }
@@ -706,7 +704,7 @@
       { t: "第 3 步：打開路口小檔案", b: "<p>點一個圓圈，右邊會出現這個路口的小檔案。<b>最上面的摘要卡</b>一眼告訴你：</p><ul class=\"plain\"><li>近三年事故幾件、死亡幾件（真實資料）</li><li>多少人回報要注意、市府處理到哪</li><li>一句白話結論：這裡為什麼危險、大家最常遇到什麼</li></ul><p>往下捲還有：什麼時候、遇到什麼、是什麼樣的事故（撞到行人、機車…）、最近有沒有變多。</p>" },
       { t: "第 4 步：回報或按「我也遇過」", b: "<ul class=\"plain\"><li>右上角「＋ 我要回報」：全部用點的，大約 60 秒。</li><li>別人回報過的路口，按「<b>我也遇過</b>」就好，畫面會告訴你「你是第幾位」。</li><li>一個 LINE 帳號、一個路口只算一次。</li><li>緊急狀況（大坑洞、號誌全滅）請直接打 1999，有人受傷打 110／119。</li></ul>" },
       { t: "第 5 步：🔍 待探索路口（尋寶）", b: "<p>虛線的路口回報還少，市府不知道那裡好不好走。首頁有「🔍 待探索路口」清單，<b>事故多但回報少的排前面</b>。</p><p>經過時打開那個路口，按「還好，沒問題」或「要注意」就完成探索，幫地圖補上資料缺口。</p>" },
-      { t: "第 6 步：點數與稱號怎麼算", b: "<table class=\"rules\"><tr><th>做了什麼</th><th>點數</th></tr>" + IMPACT_RULES.map(function (r) { return "<tr><td>" + r[2] + "</td><td class=\"mono\">+" + r[1] + "</td></tr>"; }).join("") + "</table><p>稱號：" + TITLES.map(function (t) { return t[1] + (t[0] ? "（" + t[0] + " 點）" : ""); }).join(" → ") + "。</p><p class=\"note\">只算有用的貢獻，同一個路口只算一次，亂報不會加分。首頁的「🏅 我的成就」看得到你收集的稱號。</p>" },
+      { t: "第 6 步：點數與稱號怎麼算", b: "<table class=\"rules\"><tr><th>做了什麼</th><th>點數</th></tr>" + IMPACT_RULES.map(function (r) { return "<tr><td>" + r[2] + "</td><td class=\"mono\">+" + r[1] + "</td></tr>"; }).join("") + "</table><p>稱號：" + TITLES.map(function (t) { return t[1] + (t[0] ? "（" + t[0] + " 點）" : ""); }).join(" → ") + "。</p><p class=\"note\">只算有用的貢獻，同一個路口只算一次，亂報不會加分。首頁的「我的成就」是徽章圖鑑：解鎖後可以戴上頭銜，留言和回報旁邊大家都看得到。</p>" },
       { t: "進階：兩者對照與散布圖", b: "<p>地圖左上切到「<b>兩者對照</b>」，路口分成三種：危險（事故多）、潛在危險（事故少但很多人覺得危險）、相對安全。</p><p>同時會打開<b>散布圖</b>：每個點是一個路口，橫軸是事故排名、縱軸是回報排名。兩邊一致就在斜線上；<b>左上</b>＝大家覺得危險但還沒出事，<b>右下</b>＝常出事卻少人回報。點一個點，地圖會跳到那個路口。</p>" },
       { t: "進階：回報怎麼送到市府", b: "<ul class=\"plain\"><li>同一個路口 35 公尺內的回報合成一案。</li><li>每個行政區每月前 3 名送市府，每區名額一樣。</li><li>人數還少但有急迫訊號（最近變多、曾經擦撞附照片）走「急件」，每區每月最多 1 件。</li><li>市府更新進度時你會收到通知；改善後一個月回診，問你有沒有變好。</li></ul><p class=\"note\">首頁的「深入看看」有各區排行、最近變多、落差最大的路口。</p>" }
     ],
@@ -744,6 +742,72 @@
     $("g-next").addEventListener("click", function () { if (last) closeGuide(); else { G.i += 1; drawGuide(); } });
     $("guide").querySelectorAll(".gd").forEach(function (b) { b.addEventListener("click", function () { G.i = +b.dataset.k; drawGuide(); }); });
     $("g-next").focus();
+  }
+  /* ---------------- 徽章圖鑑與頭銜 ----------------
+     先放 7 個示範徽章，之後可以一直加（通學路守護者、夜間巡守員…）。圖是自己畫的 SVG，不用網路圖片。 */
+  var BADGES = [
+    { id: "walker", name: "路過的人", need: "一開始就有", ok: function () { return true; }, color: "#9FC3D9", art: "foot", star: 1 },
+    { id: "seek1", name: "尋寶新手", need: "探索 1 個待探索路口", ok: function (im) { return im.got.explore >= 1; }, color: "#F6C85F", art: "map", star: 1 },
+    { id: "observer", name: "路口觀察員", need: "累積 3 點", ok: function (im) { return im.pts >= 3; }, color: "#86C5A9", art: "binoc", star: 2 },
+    { id: "seek3", name: "探險家", need: "探索 3 個待探索路口", ok: function (im) { return im.got.explore >= 3; }, color: "#F29A7E", art: "compass", star: 2 },
+    { id: "guardian", name: "街區守護者", need: "累積 8 點", ok: function (im) { return im.pts >= 8; }, color: "#7FA7E3", art: "shield", star: 3 },
+    { id: "fixer", name: "改善推手", need: "你回報的路口改善完成 1 次", ok: function (im) { return im.got.fixed >= 1; }, color: "#B59BE0", art: "tool", star: 3 },
+    { id: "zhongli", name: "中壢守護者", need: "累積 15 點", ok: function (im) { return im.pts >= 15; }, color: "#F5A3B5", art: "peach", star: 4 }
+  ];
+  var FACE = '<circle cx="42" cy="56" r="3" fill="#2D3446"/><circle cx="58" cy="56" r="3" fill="#2D3446"/><path d="M45 63 Q50 67 55 63" stroke="#2D3446" stroke-width="2.4" fill="none" stroke-linecap="round"/><circle cx="36" cy="62" r="3.2" fill="#F59AA8" opacity=".7"/><circle cx="64" cy="62" r="3.2" fill="#F59AA8" opacity=".7"/>';
+  var ART = {
+    foot: '<ellipse cx="50" cy="58" rx="17" ry="22" fill="#fff"/><circle cx="38" cy="30" r="5" fill="#fff"/><circle cx="48" cy="26" r="5" fill="#fff"/><circle cx="58" cy="28" r="4.5" fill="#fff"/><circle cx="66" cy="34" r="4" fill="#fff"/>' + FACE,
+    map: '<path d="M24 32 L40 26 L60 32 L76 26 L76 70 L60 76 L40 70 L24 76 Z" fill="#fff"/><path d="M40 26 V70 M60 32 V76" stroke="#E5D5A8" stroke-width="2"/><path d="M30 64 Q42 40 54 52 T70 38" stroke="#E8735F" stroke-width="2.5" stroke-dasharray="4 3" fill="none"/><path d="M66 34 l8 8 M74 34 l-8 8" stroke="#C8102E" stroke-width="3" stroke-linecap="round"/>',
+    binoc: '<rect x="44" y="40" width="12" height="10" rx="3" fill="#2D3446"/><circle cx="36" cy="56" r="14" fill="#fff" stroke="#2D3446" stroke-width="4"/><circle cx="64" cy="56" r="14" fill="#fff" stroke="#2D3446" stroke-width="4"/><circle cx="38" cy="56" r="5" fill="#2D3446"/><circle cx="66" cy="56" r="5" fill="#2D3446"/><circle cx="40" cy="54" r="1.6" fill="#fff"/><circle cx="68" cy="54" r="1.6" fill="#fff"/>',
+    compass: '<circle cx="50" cy="52" r="24" fill="#fff" stroke="#2D3446" stroke-width="3"/><path d="M50 32 L56 52 L50 72 L44 52 Z" fill="#C8102E"/><path d="M50 52 L56 52 L50 72 L44 52 Z" fill="#9AA5B1"/><circle cx="50" cy="52" r="3" fill="#2D3446"/><circle cx="50" cy="24" r="4" fill="#2D3446"/>',
+    shield: '<path d="M50 22 L74 30 V50 C74 66 62 76 50 80 C38 76 26 66 26 50 V30 Z" fill="#fff"/>' + FACE.replace(/cy="56"/g, 'cy="50"').replace("M45 63 Q50 67 55 63", "M45 57 Q50 61 55 57").replace(/cy="62"/g, 'cy="56"'),
+    tool: '<rect x="46" y="38" width="8" height="40" rx="3" fill="#C49A6C"/><path d="M30 30 h40 v12 h-40 z" rx="3" fill="#fff" stroke="#2D3446" stroke-width="3"/><path d="M62 62 l10 -4 l4 10 l-10 4 z" fill="#F6C85F"/><path d="M24 64 l6 2 l2 6 l-6 -2 z" fill="#F6C85F"/>',
+    peach: '<path d="M50 80 C22 74 18 44 36 34 C43 30 48 33 50 38 C52 33 57 30 64 34 C82 44 78 74 50 80 Z" fill="#FFD3C2"/><path d="M50 38 C49 52 49 66 50 80" stroke="#F3A890" stroke-width="2" fill="none"/><path d="M50 37 C54 26 62 22 70 24 C66 32 58 36 50 37 Z" fill="#6DBF7B"/><path d="M38 22 l4 -8 l4 6 l4 -8 l4 8 l4 -6 l4 8 z" fill="#F6C85F" stroke="#C9971E" stroke-width="1.5"/>' + FACE.replace(/cy="56"/g, 'cy="58"').replace("M45 63 Q50 67 55 63", "M45 65 Q50 69 55 65").replace(/cy="62"/g, 'cy="64"')
+  };
+  function badgeSVG(b, size, locked) {
+    return '<svg class="bsvg' + (locked ? " locked" : "") + '" viewBox="0 0 100 100" width="' + size + '" height="' + size + '" aria-hidden="true">' +
+      '<circle cx="50" cy="50" r="46" fill="' + b.color + '"/><circle cx="50" cy="50" r="46" fill="none" stroke="#fff" stroke-width="4" opacity=".7"/>' +
+      '<circle cx="50" cy="50" r="40" fill="none" stroke="#2D3446" stroke-width="1.5" stroke-dasharray="2 4" opacity=".25"/>' + ART[b.art] + "</svg>";
+  }
+  var EQ_KEY = "taoguo-title-";
+  function equippedId() { try { var st = histStore(); return st ? st.getItem(EQ_KEY + histId()) : null; } catch (e) { return null; } }
+  function setEquipped(id) { try { var st = histStore(); if (st) st.setItem(EQ_KEY + histId(), id); } catch (e) {} }
+  /* 目前戴的頭銜：自己選的（要已解鎖），沒選就用點數等級最高的那個 */
+  function myBadge(im) {
+    im = im || impactOf();
+    var open = BADGES.filter(function (b) { return b.ok(im); });
+    var eq = open.filter(function (b) { return b.id === equippedId(); })[0];
+    if (eq) return eq;
+    var lv = TITLES.filter(function (t) { return im.pts >= t[0]; }).pop()[1];
+    return BADGES.filter(function (b) { return b.name === lv; })[0] || BADGES[0];
+  }
+  function titleChip(b, size) {
+    return '<span class="tchip" style="--bc:' + b.color + '">' + badgeSVG(b, size || 16) + esc(b.name) + "</span>";
+  }
+  /* 示意留言的其他市民也戴著頭銜（依留言內容固定挑一個，讓大家看得到頭銜長什麼樣） */
+  function demoBadgeFor(text) {
+    var h = 0; String(text).split("").forEach(function (ch) { h = (h * 31 + ch.charCodeAt(0)) % 997; });
+    return BADGES[h % 5];
+  }
+  function badgeGridHTML(im) {
+    var eq = myBadge(im).id;
+    return '<div class="bgrid">' + BADGES.map(function (b) {
+      var on = b.ok(im);
+      return '<div class="bcard' + (on ? " on" : "") + (b.id === eq ? " eq" : "") + '">' + badgeSVG(b, 72, !on) + (on ? "" : '<span class="block">🔒</span>') +
+        "<b>" + esc(b.name) + '</b><span class="stars">' + "★★★★".slice(0, b.star) + '<i>' + "★★★★".slice(b.star) + "</i></span><small>" + esc(b.need) + "</small>" +
+        (on ? (b.id === eq ? '<span class="xtag ok">配戴中</span>' : '<button type="button" class="btn small" data-eq="' + b.id + '">戴上這個頭銜</button>') : '<span class="xtag">未解鎖</span>') + "</div>";
+    }).join("") +
+      '<div class="bcard soon"><span class="bq">?</span><b>更多徽章</b><small>通學路守護者、夜間巡守員、雨天偵察兵…陸續推出</small><span class="xtag">即將推出</span></div></div>';
+  }
+  function playerCardHTML(im) {
+    var TL = window.TaoguoLINE || {}, me = S.me || { user: "行人", color: COLORS[1] }, b = myBadge(im);
+    var lo = TITLES.filter(function (t) { return im.pts >= t[0]; }).pop()[0], hi = im.next ? im.next[0] : lo;
+    var pct = im.next ? Math.round((im.pts - lo) / (hi - lo) * 100) : 100;
+    return '<div class="player"><div class="pl-av">' + K.avatar(me.user, me.color, 56) + '<span class="pl-b">' + badgeSVG(b, 34) + "</span></div>" +
+      '<div class="pl-tx"><b>' + esc(TL.user ? TL.user.name : "你（示意帳號）") + "</b>" + titleChip(b, 18) +
+      '<span class="pl-lv">等級：' + esc(im.title) + "・" + im.pts + " 點</span>" +
+      '<span class="xprog"><span style="width:' + pct + '%"></span></span>' +
+      "<small>" + (im.next ? "再 " + (im.next[0] - im.pts) + " 點升到「" + esc(im.next[1]) + "」" : "已經是最高等級") + "</small></div></div>";
   }
   function myHistoryHTML() {
     var list = myHistory().slice().reverse();
@@ -999,7 +1063,7 @@
     var showVoices = function (tone) {
       var list = tone === "praise" ? praiseC : concernC;
       $("voices").innerHTML = list.length ? list.map(function (c) {
-        return '<li class="voice">' + K.avatar(c.user, K.userColor(c.user), 30) + "<div><p>" + esc(c.text) + "</p><small>" + c.user + (c.category ? "・" + c.category : "") + (c.date ? "・" + c.date : c.mine ? "・剛剛" : "") + "</small></div></li>";
+        return '<li class="voice">' + K.avatar(c.user, K.userColor(c.user), 30) + "<div><p>" + esc(c.text) + "</p><small>" + c.user + " " + titleChip(c.mine ? myBadge() : demoBadgeFor(c.text), 13) + (c.category ? "・" + c.category : "") + (c.date ? "・" + c.date : c.mine ? "・剛剛" : "") + "</small></div></li>";
       }).join("") : '<li class="note">還沒有人這樣說。</li>';
       $("pin").querySelectorAll(".tabs button").forEach(function (b) { b.setAttribute("aria-selected", b.dataset.t === tone); });
     };
@@ -1021,7 +1085,7 @@
       $("phone").hidden = false;
       $("chat").innerHTML = "";
       var TL = window.TaoguoLINE || {};
-      R.bot("嗨" + (TL.user ? "，" + esc(TL.user.name) : "") + "！這是「桃過一劫」的回報小幫手（示意）。差點出事、好險逃過一劫的地方，都可以跟我說。");
+      R.bot("嗨" + (TL.user ? "，" + esc(TL.user.name) : "") + " " + titleChip(myBadge(), 14) + "！這是「桃過一劫」的回報小幫手（示意）。差點出事、好險逃過一劫的地方，都可以跟我說。");
       R.bot('這裡用來回報「差點出事、讓人害怕」的路口。<br><b>緊急狀況</b>（大坑洞、號誌全滅、路樹倒塌）請直接打 <b>1999</b>；有人受傷請打 <b>110／119</b>。');
       if (!S.me) R.stepAvatar(); else R.askSameAvatar();
     },
@@ -1213,6 +1277,7 @@
       var d = document.createElement("div"); d.className = "done";
       d.innerHTML = '<div class="rank">你是第<b>' + rank + "</b>位" + (R.ctx.mode === "praise" ? "說這裡變好了的人" : "回報這裡的人") + "</div>" +
         '<div class="stage"><div class="crowdline">' + crowdHTML(r.users, 14) + '</div><div class="me">' + K.avatar(S.me.user, S.me.color, 44) + '</div><div class="road"></div></div>' +
+        '<p class="note">' + titleChip(myBadge(), 16) + " 你的頭銜會顯示在留言旁</p>" +
         '<p class="mine">' + esc(R.ctx.mode === "praise" ? "你說：" + R.ctx.praise : "你回報：" + R.ctx.cat + "・" + R.ctx.time + "・" + (R.ctx.freq || "") + "・" + R.ctx.sev) + "</p>" +
         '<p class="note">' + (R.ctx.mode === "praise" ? "謝謝你！我們會把這句感謝轉給負責改善的單位。" : "我們每月會把這裡整理給市府。處理有進展時，會在這裡通知你。") + "</p>" +
         '<p class="note"><i class="mineb static">我</i>已加入「我的回報」，地圖上這個路口會標「我」，之後可以回來看進度。</p>' +
