@@ -433,3 +433,24 @@ body.gov .brand-sub::after{content:"・承辦模式（示意）";color:#F4B4A6;f
 .done-row{margin:6px 0;font-size:14px}
 
 .quadgrid .qcard:first-child{grid-column:1 / -1}
+
+/* 死亡事故標記（A1） */
+.a1b{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#1F2427;color:#fff;font:700 10px/1 var(--f-body);font-style:normal;border:1.5px solid #D64541;box-shadow:0 0 0 1.5px var(--surface)}
+.mk .a1b{position:absolute;right:-7px;top:-7px}
+.mk.quad .a1b{right:-9px;top:-9px}
+.a1b.static{margin-right:5px;vertical-align:-3px}
+.a1t{color:var(--storm)}
+/* 散布圖 */
+.scatwrap{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.scatter{width:100%;max-width:360px;height:auto;display:block}
+.scatter .sl{font:500 11px var(--f-body);fill:var(--ink);paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}
+.scatter .sl.mute{fill:var(--muted)}
+.scatter .sa{font:11px var(--f-body);fill:var(--muted)}
+.scatter .sdot{cursor:pointer}
+.scatter .sdot:hover circle,.scatter .sdot:focus circle{stroke:var(--ink)}
+.scatter .sdot:focus{outline:none}
+/* 我附近 */
+.nearbtn{align-self:flex-start;padding:6px 12px;font-size:13px;box-shadow:0 2px 0 rgba(0,0,0,.08)}
+body.gov .nearbtn{display:none}
+.nearseg{margin:10px 0 4px}
+.nearseg button{padding:6px 12px}

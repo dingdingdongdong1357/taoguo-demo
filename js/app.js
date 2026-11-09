@@ -258,13 +258,13 @@
         var a = L.real.acc_recent;
         size = Math.round((22 + Math.sqrt(a) * 2.8) * zf);
         cls = "mk acc" + (L.real.level === "high" ? "" : " low");
-        html = String(a);
-        label = L.name + "，近三年事故 " + a + " 件（真實資料）";
+        html = String(a) + (L.real.a1_recent ? '<i class="a1b" title="近三年有死亡事故">亡</i>' : "");
+        label = L.name + "，近三年事故 " + a + " 件" + (L.real.a1_recent ? "，其中死亡事故 " + L.real.a1_recent + " 件" : "") + "（真實資料）";
       } else if (S.layer === "compare") {
         var q = QUAD[L.quadrant];
         size = 26;
         cls = "mk quad";
-        html = q.short;
+        html = q.short + (L.real.a1_recent ? '<i class="a1b" title="近三年有死亡事故">亡</i>' : "");
         el.style.background = "var(" + q.v + ")";
         el.style.borderColor = "var(--surface)";
         label = L.name + "：" + q.name;
@@ -302,11 +302,11 @@
     var h;
     if (S.layer === "accidents") {
       h = '<div class="row"><span class="li"><span class="badge real">真實資料</span></span>數字＝近三年（' + S.meta.recent.join("–") + "）路口 35 公尺內事故件數</div>" +
-        '<div class="row"><span class="li"><i style="width:12px;height:12px;border-radius:50%;background:var(--ink);display:inline-block"></i>本區前 20%（≥ ' + S.meta.acc_high_threshold + ' 件）</span><span class="li"><i style="width:12px;height:12px;border-radius:50%;border:2px solid var(--ink);display:inline-block"></i>其他</span></div>';
+        '<div class="row"><span class="li"><i style="width:12px;height:12px;border-radius:50%;background:var(--ink);display:inline-block"></i>本區前 20%（≥ ' + S.meta.acc_high_threshold + ' 件）</span><span class="li"><i style="width:12px;height:12px;border-radius:50%;border:2px solid var(--ink);display:inline-block"></i>其他</span><span class="li"><i class="a1b static">亡</i>近三年有死亡事故（A1）</span></div>';
     } else if (S.layer === "compare") {
       h = '<div class="row">' + Object.keys(QUAD).map(function (k) {
         return '<span class="li"><i style="width:12px;height:12px;background:var(' + QUAD[k].v + ');display:inline-block;border-radius:2px"></i>' + QUAD[k].name + "</span>";
-      }).join("") + '</div><div class="row">事故（真實）× 回報（示意）</div>';
+      }).join("") + '<span class="li"><i class="a1b static">亡</i>有死亡事故</span></div><div class="row">事故（真實）× 回報（示意）</div>';
     } else {
       var sw = function (c, t, txt) { return '<span class="li"><span class="cb care-' + c + '" style="width:18px;height:18px;font-size:10px">' + t + "</span>" + txt + "</span>"; };
       h = '<div class="row">' + sw("many", "", "很多人關心") + sw("some", "", "有人關心") + sw("few", "", "回報還少") + sw("few improved", "✓", "變好了") + "</div>" +
@@ -315,16 +315,171 @@
     $("legend").innerHTML = h;
   }
 
+  /* ---------------- scatter: accidents vs reports ----------------
+     Both axes are ranks inside the demo area (0 = fewest, 100 = most), so the two can be compared:
+     if residents and accident data agree, a point sits on the diagonal. */
+  function prOf(v, arr) {
+    var lo = arr.filter(function (x) { return x < v; }).length, eq = arr.filter(function (x) { return x === v; }).length;
+    return Math.round((lo + (eq - 1) / 2) / Math.max(arr.length - 1, 1) * 100);
+  }
+  function ranks() {
+    var acc = S.locs.map(function (L) { return L.real.acc_recent; }), rep = S.locs.map(function (L) { return L.reports.concern; });
+    var out = {};
+    S.locs.forEach(function (L) { out[L.id] = { x: prOf(L.real.acc_recent, acc), y: prOf(L.reports.concern, rep) }; });
+    return out;
+  }
+  var GAP = 30;  // more than 30 rank points off the diagonal counts as "the two disagree"
+  function scatterHTML(selId) {
+    var R0 = ranks(), W = 320, H = 268, l = 34, t = 12, w = W - l - 12, h = H - t - 40;
+    var X = function (v) { return l + (4 + v * 0.92) / 100 * w; }, Y = function (v) { return t + h - (4 + v * 0.92) / 100 * h; };
+    var diag = function (d) {  // the line y = x + d, clipped to the box
+      var x0 = Math.max(0, -d), x1 = Math.min(100, 100 - d);
+      return "M" + X(x0) + " " + Y(x0 + d) + "L" + X(x1) + " " + Y(x1 + d);
+    };
+    var dots = S.locs.slice().sort(function (a, b) { return (a.id === selId) - (b.id === selId); }).map(function (L) {
+      var p = R0[L.id], on = L.id === selId;
+      return '<g class="sdot' + (on ? " on" : "") + '" data-id="' + L.id + '" tabindex="0" role="button" aria-label="' + esc(L.name) + "：事故排名 " + p.x + "、回報排名 " + p.y + '">' +
+        "<title>" + esc(L.name) + "｜事故 " + L.real.acc_recent + " 件・回報 " + L.reports.concern + " 人</title>" +
+        (on ? '<circle cx="' + X(p.x) + '" cy="' + Y(p.y) + '" r="11" fill="none" stroke="var(--ink)" stroke-width="2"/>' : "") +
+        '<circle cx="' + X(p.x) + '" cy="' + Y(p.y) + '" r="' + (on ? 7 : 5.5) + '" fill="var(' + QUAD[L.quadrant].v + ')" stroke="var(--surface)" stroke-width="1.5"/>' +
+        (L.real.a1_recent ? '<circle cx="' + X(p.x) + '" cy="' + Y(p.y) + '" r="2" fill="var(--surface)" pointer-events="none"/>' : "") + "</g>";
+    }).join("");
+    var ang = (Math.atan(h / w) * 180 / Math.PI).toFixed(1);
+    var svg = '<svg class="scatter" viewBox="0 0 ' + W + " " + H + '" role="group" aria-label="散布圖：橫軸事故排名，縱軸回報排名">' +
+      '<path d="M' + X(0) + " " + Y(GAP) + "L" + X(100 - GAP) + " " + Y(100) + "L" + X(0) + " " + Y(100) + 'Z" fill="var(--q-prevent)" opacity=".12"/>' +
+      '<path d="M' + X(GAP) + " " + Y(0) + "L" + X(100) + " " + Y(100 - GAP) + "L" + X(100) + " " + Y(0) + 'Z" fill="var(--q-priority)" opacity=".12"/>' +
+      '<rect x="' + l + '" y="' + t + '" width="' + w + '" height="' + h + '" fill="none" stroke="var(--line)"/>' +
+      '<path d="' + diag(0) + '" stroke="var(--muted)" stroke-width="1.2"/>' +
+      '<path d="' + diag(GAP) + '" stroke="var(--line)" stroke-dasharray="3 3"/><path d="' + diag(-GAP) + '" stroke="var(--line)" stroke-dasharray="3 3"/>' +
+      '<text x="' + (l + 6) + '" y="' + (t + 16) + '" class="sl">回報多、事故少</text>' +
+      '<text x="' + (l + w - 6) + '" y="' + (t + h - 8) + '" class="sl" text-anchor="end">事故多、回報少</text>' +
+      '<text x="' + X(6) + '" y="' + (Y(6) - 5) + '" class="sl mute" transform="rotate(-' + ang + " " + X(6) + " " + (Y(6) - 5) + ')">兩邊一致</text>' +
+      '<text x="' + (l + w / 2) + '" y="' + (H - 8) + '" class="sa" text-anchor="middle">事故排名 →（真實）</text>' +
+      '<text x="12" y="' + (t + h / 2) + '" class="sa" text-anchor="middle" transform="rotate(-90 12 ' + (t + h / 2) + ')">回報排名 →（示意）</text>' +
+      dots + "</svg>";
+    if (selId) {
+      var p = R0[selId], d = p.y - p.x;
+      return '<div class="scatwrap">' + svg + '<p class="note">這個路口：事故排第 <b>' + p.x + "</b>、回報排第 <b>" + p.y + "</b>（0＝最少，100＝最多）。" +
+        (d > GAP ? "回報明顯比事故多：市民先感覺到危險。" : d < -GAP ? "事故明顯比回報多：要問為什麼沒人回報（例如車多但少人走路）。" : "兩邊差不多一致。") + "</p></div>";
+    }
+    var gaps = S.locs.map(function (L) { return { L: L, d: R0[L.id].y - R0[L.id].x }; });
+    var list = function (arr, txt) {
+      return arr.length ? '<p class="b-label">' + txt + '</p><ol class="board">' + arr.slice(0, 3).map(function (g) {
+        return '<li><button class="brow" data-id="' + g.L.id + '">' + careBadge(g.L, 24) + '<span class="nm">' + esc(g.L.name) + '</span><span class="mono v">差 ' + Math.abs(g.d) + "</span></button></li>";
+      }).join("") + "</ol>" : "";
+    };
+    return '<div class="scatwrap"><p class="b-label">散布圖：事故和回報一致嗎？</p>' + svg +
+      '<p class="note">每個點是一個路口，兩軸都是在 Demo 範圍的排名（0＝最少，100＝最多）。兩邊一致就落在斜線上；離斜線越遠，落差越大。點一下會在地圖上找到它；中間有白點的是有死亡事故的路口。</p>' +
+      list(gaps.filter(function (g) { return g.d > GAP; }).sort(function (a, b) { return b.d - a.d; }), "回報多、事故少（落差最大）") +
+      list(gaps.filter(function (g) { return g.d < -GAP; }).sort(function (a, b) { return a.d - b.d; }), "事故多、回報少（落差最大）") + "</div>";
+  }
+  function bindScatter(root) {
+    root.querySelectorAll(".sdot").forEach(function (g) {
+      var go = function () { select(g.dataset.id, true); };
+      g.addEventListener("click", go);
+      g.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+      g.addEventListener("mouseenter", function () { pulse(g.dataset.id); });
+    });
+    root.querySelectorAll(".scatwrap .brow").forEach(function (b) { b.addEventListener("click", function () { select(b.dataset.id, true); }); });
+  }
+
+  /* ---------------- 我附近: location-based view ----------------
+     Reads the phone's GPS (works inside the LINE mini app). Outside the demo area it falls back to Zhongli station. */
+  var STATION = { lon: 121.2257, lat: 24.9537, name: "中壢火車站" };
+  function distM(a, b) {
+    var dx = (a.lon - b.lon) * 111320 * Math.cos(a.lat * Math.PI / 180), dy = (a.lat - b.lat) * 110540;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  function circleGeo(c, r) {
+    var pts = [];
+    for (var i = 0; i <= 64; i++) {
+      var a = i / 64 * 2 * Math.PI;
+      pts.push([c.lon + r * Math.cos(a) / (111320 * Math.cos(c.lat * Math.PI / 180)), c.lat + r * Math.sin(a) / 110540]);
+    }
+    return { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", coordinates: [pts] }, properties: {} },
+      { type: "Feature", geometry: { type: "Point", coordinates: [c.lon, c.lat] }, properties: {} }] };
+  }
+  function drawNearby() {
+    var m = S.map, n = S.near;
+    if (!m || !m.isStyleLoaded() || !n) return;
+    var g = circleGeo(n.c, n.r), ink = K.cssVar("--accent") || "#1D5C8A";
+    if (m.getSource("near")) m.getSource("near").setData(g);
+    else {
+      m.addSource("near", { type: "geojson", data: g });
+      m.addLayer({ id: "near-fill", type: "fill", source: "near", filter: ["==", ["geometry-type"], "Polygon"], paint: { "fill-color": ink, "fill-opacity": 0.08 } });
+      m.addLayer({ id: "near-line", type: "line", source: "near", filter: ["==", ["geometry-type"], "Polygon"], paint: { "line-color": ink, "line-width": 2, "line-dasharray": [2, 1.5] } });
+      m.addLayer({ id: "near-me", type: "circle", source: "near", filter: ["==", ["geometry-type"], "Point"], paint: { "circle-radius": 7, "circle-color": ink, "circle-stroke-color": "#fff", "circle-stroke-width": 3 } });
+    }
+    var dLon = n.r / (111320 * Math.cos(n.c.lat * Math.PI / 180)), dLat = n.r / 110540, narrow = window.innerWidth <= 820;
+    m.fitBounds([[n.c.lon - dLon, n.c.lat - dLat], [n.c.lon + dLon, n.c.lat + dLat]], {
+      padding: narrow ? { top: 90, bottom: window.innerHeight * 0.44 + 20, left: 20, right: 20 } : { top: 70, bottom: 70, left: 60, right: 60 }, duration: 600 });
+  }
+  function clearNearby() {
+    S.near = null;
+    var m = S.map;
+    if (m && m.getSource && m.getSource("near")) m.getSource("near").setData({ type: "FeatureCollection", features: [] });
+  }
+  function radiusText(r) { return r >= 1000 ? r / 1000 + " 公里" : r + " 公尺"; }
+  function openNearby() {
+    S.sel = null;
+    S.near = { c: STATION, r: (S.near && S.near.r) || 1000, status: "locating", msg: "" };
+    renderMarkers();
+    renderNearby();
+    var fallback = function (msg) { if (!S.near) return; S.near.c = STATION; S.near.status = "demo"; S.near.msg = msg; renderNearby(); drawNearby(); };
+    if (!navigator.geolocation) { fallback("這個瀏覽器不能定位，先用中壢火車站示範。"); return; }
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      if (!S.near) return;
+      var c = { lon: pos.coords.longitude, lat: pos.coords.latitude, name: "你的位置" }, b = S.meta.bbox;
+      if (c.lon < b[0] - 0.005 || c.lon > b[2] + 0.005 || c.lat < b[1] - 0.005 || c.lat > b[3] + 0.005) { fallback("你目前不在 Demo 範圍（中壢火車站周邊），先用中壢火車站示範；正式版會涵蓋全桃園。"); return; }
+      S.near.c = c; S.near.status = "gps"; S.near.msg = ""; renderNearby(); drawNearby();
+    }, function () { fallback("沒有取得定位權限，先用中壢火車站示範。"); }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
+  }
+  function renderNearby() {
+    var n = S.near;
+    if (!n) return;
+    var inR = S.locs.map(function (L) { return { L: L, d: distM(L, n.c) }; }).filter(function (x) { return x.d <= n.r; }).sort(function (a, b) { return a.d - b.d; });
+    var acc = sum(inR.map(function (x) { return x.L.real.acc_recent; })), a1 = sum(inR.map(function (x) { return x.L.real.a1_recent; })),
+      rep = sum(inR.map(function (x) { return x.L.reports.concern; })),
+      worst = inR.slice().sort(function (a, b) { return b.L.reports.concern - a.L.reports.concern; })[0];
+    var topCat = function (L) { return Object.keys(L.reports.categories).sort(function (a, b) { return L.reports.categories[b] - L.reports.categories[a]; })[0]; };
+    var html = '<button class="back" id="back">← 回到全部路口</button>' +
+      '<p class="eyebrow">我附近</p><h1 class="ptitle">' + (n.status === "locating" ? "定位中…" : esc(n.c.name) + "附近 " + radiusText(n.r) + "內") + "</h1>" +
+      (n.msg ? '<p class="minenote warn">' + esc(n.msg) + "</p>" : "") +
+      '<div class="seg nearseg" role="group" aria-label="範圍">' + [500, 1000, 2000].map(function (r) {
+        return '<button type="button" data-r="' + r + '" aria-pressed="' + (r === n.r) + '">' + radiusText(r) + "</button>";
+      }).join("") + "</div>" +
+      '<div class="stats">' +
+      '<div class="stat"><b>' + inR.length + "</b><span>個路口</span></div>" +
+      '<div class="stat"><b>' + fmt(acc) + '</b><span>近三年事故<br><span class="badge real">真實</span></span></div>' +
+      '<div class="stat"><b>' + a1 + '</b><span>死亡事故<br><span class="badge real">真實</span></span></div>' +
+      '<div class="stat"><b>' + fmt(rep) + '</b><span>人回報要注意<br><span class="badge mock">示意</span></span></div></div>' +
+      (worst ? '<p class="accnote">附近最多人回報的是 <b>' + esc(worst.L.name) + "</b>（" + worst.L.reports.concern + " 人），最常遇到「" + esc(topCat(worst.L)) + "」。</p>" : "") +
+      '<div class="sec"><div class="sec-h"><h3>範圍內的路口（由近到遠）</h3></div>' +
+      (inR.length ? '<ol class="board">' + inR.map(function (x) {
+        var L = x.L;
+        return '<li><button class="brow" data-id="' + L.id + '">' + careBadge(L, 24) + '<span class="nm">' + esc(L.name) +
+          '<br><span class="sub">' + QUAD[L.quadrant].name + "・事故 " + L.real.acc_recent + " 件" + (L.real.a1_recent ? '（<b class="a1t">死亡 ' + L.real.a1_recent + "</b>）" : "") + "・回報 " + L.reports.concern + ' 人</span></span><span class="mono v">' + Math.round(x.d / 10) * 10 + " m</span></button></li>";
+      }).join("") + "</ol>" : '<p class="note">這個範圍內沒有 Demo 的路口，試試把範圍放大。</p>') + "</div>" +
+      '<p class="note">事故＝路口 35 公尺內的 A1、A2 事故（桃園市政府開放資料）；回報為示意資料。定位只用來畫範圍，不會記錄或上傳。</p>';
+    $("pin").innerHTML = html;
+    $("back").addEventListener("click", function () { renderOverview(); fitAll(true); });
+    $("pin").querySelectorAll(".nearseg button").forEach(function (b) { b.addEventListener("click", function () { S.near.r = +b.dataset.r; renderNearby(); drawNearby(); }); });
+    $("pin").querySelectorAll(".brow").forEach(function (b) { b.addEventListener("click", function () { select(b.dataset.id, true); }); });
+    $("panel").classList.add("expanded");
+    $("panel").scrollTop = 0;
+  }
+
   /* ---------------- controls ---------------- */
   function setLayer(layer) {
     S.layer = layer;
     document.querySelectorAll("#layers button").forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.layer === layer); });
     renderMarkers();
-    if (!S.sel) renderOverview();
+    if (!S.sel) { if (S.near) renderNearby(); else renderOverview(); }
   }
   /* ---------------- panel: overview ---------------- */
   function renderOverview() {
     S.sel = null;
+    clearNearby();
     var counts = { priority: 0, prevent: 0, calm: 0 };
     S.locs.forEach(function (L) { counts[L.quadrant]++; });
     var totalReports = sum(S.locs.map(function (L) { return L.reports.concern + L.reports.praise; }));
@@ -350,7 +505,7 @@
       ["prevent", "priority", "calm"].map(function (k) {
         var q = QUAD[k];
         return '<button class="qcard" style="--qc:var(' + q.v + ')" data-quad="' + k + '"><b>' + q.name + "</b><span>" + q.desc + "</span><em>" + counts[k] + " 個路口</em></button>";
-      }).join("") + "</div></div>" +
+      }).join("") + "</div>" + scatterHTML(null) + "</div>" +
       risingHTML() +
       boardHTML() +
       '<div class="sec"><div class="sec-h"><h3>從這幾個路口看起</h3></div><div class="picks">' +
@@ -368,6 +523,7 @@
       $("qres").querySelectorAll(".brow").forEach(function (b) { b.addEventListener("click", function () { select(b.dataset.id, true); }); });
     });
     $("pin").querySelectorAll(".btabs button").forEach(function (b) { b.addEventListener("click", function () { S.board = b.dataset.d; renderOverview(); }); });
+    bindScatter($("pin"));
     $("pin").querySelectorAll(".qcard").forEach(function (b) {
       b.addEventListener("click", function () {
         setLayer("compare");
@@ -518,7 +674,7 @@
     var praiseC = L.comments.filter(function (c) { return c.tone === "praise"; });
     var accSum = sum(L.real.acc_by_year);
     var html =
-      '<button class="back" id="back">← 回到全部路口</button>' +
+      '<button class="back" id="back">' + (S.near ? "← 回到我附近" : "← 回到全部路口") + '</button>' +
       (L.deferred && L.route === "next" ? '<p class="minenote warn">⏳ 承辦已排到<b>下個月</b>處理：' + esc(L.deferred.reason) + "。名額保留，下個月優先。</p>" : "") +
       (STAGE_ICON[L.stage] && !L.improved ? '<p class="minenote">' + STAGE_ICON[L.stage] + " 目前進度：<b>" + esc(progressLabel(L)) + "</b>" + (L.plan ? "・預計怎麼改：" + esc(L.plan) : "") + "</p>" : "") +
       (myReport(L.id) ? '<p class="minenote"><i class="mineb static">我</i>你在 ' + mmdd(myReport(L.id).date) + " 回報過這裡：" + esc(myLine(myReport(L.id))) + "。目前進度：" + esc(progressLabel(L)) + "</p>" : "") +
@@ -558,7 +714,7 @@
       (L.real.level === "high" ? "近三年事故數在本區前 20%。" : "近三年事故數不在本區前 20%。") + "</p>" +
       '<p class="note">路口 35 公尺內的 A1、A2 事故。來源：桃園市政府開放資料。</p></div>' +
 
-      '<div class="sec"><div class="sec-h"><h3>兩邊對照</h3></div><p class="accnote"><b style="color:var(' + q.v + ')">' + q.name + "</b>：" + q.desc + "</p></div>" +
+      '<div class="sec"><div class="sec-h"><h3>兩邊對照</h3></div><p class="accnote"><b style="color:var(' + q.v + ')">' + q.name + "</b>：" + q.desc + "</p>" + scatterHTML(L.id) + "</div>" +
 
       (L.decision ? '<div class="sec"><div class="sec-h"><h3>市府回覆</h3><span class="badge mock">示意</span></div><p class="accnote"><b>' + esc(L.decision.title) + "（" + esc(L.decision.date) + "）</b>：" + esc(L.decision.text) + "</p></div>" : "") +
       '<div class="sec"><div class="sec-h"><h3>處理進度</h3><span class="badge mock">示意</span></div><ol class="steps">' +
@@ -594,7 +750,8 @@
     };
     showVoices("concern");
     $("pin").querySelectorAll(".tabs button").forEach(function (b) { b.addEventListener("click", function () { showVoices(b.dataset.t); }); });
-    $("back").addEventListener("click", function () { renderOverview(); });
+    $("back").addEventListener("click", function () { if (S.near) renderNearby(); else renderOverview(); });
+    bindScatter($("pin"));
     $("metoo").addEventListener("click", function () { R.open({ loc: L.id, mode: "concern", quick: true }); });
     $("better").addEventListener("click", function () { R.open({ loc: L.id, mode: "praise" }); });
   }
@@ -860,6 +1017,7 @@
     $("brand").insertAdjacentHTML("afterbegin", K.brand());
     document.querySelectorAll("#layers button").forEach(function (b) { b.addEventListener("click", function () { setLayer(b.dataset.layer); }); });
     $("report").addEventListener("click", function () { R.open({}); });
+    $("near").addEventListener("click", openNearby);
     $("phone-x").addEventListener("click", R.close);
     $("handle").addEventListener("click", function () { $("panel").classList.toggle("expanded"); });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !$("phone").hidden) R.close(); });
