@@ -431,3 +431,5 @@ body.gov .brand-sub::after{content:"・承辦模式（示意）";color:#F4B4A6;f
 .chip{border:1px solid var(--line,#ccc);background:var(--surface,#fff);border-radius:999px;padding:4px 10px;font-size:13px;cursor:pointer}
 .chip:hover{border-color:var(--ink)}
 .done-row{margin:6px 0;font-size:14px}
+
+.quadgrid .qcard:first-child{grid-column:1 / -1}

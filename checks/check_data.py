@@ -83,7 +83,8 @@ for x in L:
 q = {}
 for x in L:
     q[x["quadrant"]] = q.get(x["quadrant"], 0) + 1
-check(all(q.get(k, 0) >= 3 for k in ("priority", "prevent", "blind", "calm")), f"四種對照類型各至少 3 個：{q}")
+check(all(q.get(k, 0) >= 3 for k in ("priority", "prevent", "calm")) and "blind" not in q, f"三種對照類型各至少 3 個：{q}")
+check(all(x["route"] != "fast" or x["trend"]["rising"] or "擦撞" in x["route_reason"] for x in L), "快速通道只給最近變多或曾經擦撞的路口")
 
 # routes: no citywide ranking; every district sends exactly its own top N
 ranked = sorted([x for x in L if not x["improved"]], key=lambda x: (-x["reports"]["concern"], x["id"]))

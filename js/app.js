@@ -10,15 +10,14 @@
   var PRAISE_OPTS = ["標線變清楚", "號誌時間變長", "人行空間變好", "違停變少", "其他"];
   var COLORS = ["#C46A00", "#1D5C8A", "#2B7A57", "#B23F2C", "#7B4E9E", "#E2B11B"];
   var QUAD = {
-    priority: { name: "危險", short: "危險", v: "--q-priority", desc: "事故多，也很多人覺得危險：要優先改善。" },
-    prevent: { name: "潛在危險", short: "潛在", v: "--q-prevent", desc: "事故還不多，但很多人覺得危險：要提早預防。這是熱點分析看不到、本提案最想找出來的地方。" },
-    blind: { name: "盲點", short: "盲點", v: "--q-blind", desc: "事故多，回報卻很少：可能大家習慣了，或經過的多是外地人，市府要主動看。" },
-    calm: { name: "安全", short: "安全", v: "--q-calm", desc: "事故少，覺得危險的人也少：相對安全。" }
+    priority: { name: "危險", short: "危險", v: "--q-priority", desc: "事故多：事故資料已經看得到，市府用熱點方法在處理。" },
+    prevent: { name: "潛在危險", short: "潛在", v: "--q-prevent", desc: "事故還不多，但很多人覺得危險：市府看不到的盲點，要提早預防。這是本提案最想找出來的地方。" },
+    calm: { name: "相對安全", short: "安全", v: "--q-calm", desc: "事故少，覺得危險的人也少：目前沒有訊號，繼續收集回報。" }
   };
   var CARE_TEXT = { many: "很多人關心這裡", some: "有人關心這裡", few: "回報還少：資訊不足，不代表安全" };
   var ROUTE = {
     district: { name: "各區排行", tag: "", desc: function () { return "每個行政區自己的前 " + S.meta.district_quota + " 名，每區名額一樣"; } },
-    fast: { name: "快速通道", tag: "快", desc: function () { return "回報少但情況嚴重：曾經擦撞並附照片、近三年發生過死亡事故，或里長、學校代表回報"; } }
+    fast: { name: "快速通道", tag: "快", desc: function () { return "回報人數還少，但有急迫訊號：最近突然變多、有人曾經擦撞並附照片，或里長、學校代表回報（每區每月最多 1 件）"; } }
   };
   function careText(L) { return L.improved ? "多數人說這裡變好了" : CARE_TEXT[L.care]; }
   function careBadge(L, size) {
@@ -48,7 +47,7 @@
   }
   function quadOf(L) {
     var hiA = L.real.acc_recent >= S.meta.acc_high_threshold, hiR = L.reports.concern >= S.meta.report_high_threshold;
-    return hiA ? (hiR ? "priority" : "blind") : (hiR ? "prevent" : "calm");
+    return hiA ? "priority" : (hiR ? "prevent" : "calm");
   }
   /* Same template as data-prep/prepare.py, recomputed so it stays true after new reports. */
   function summaryOf(L) {
@@ -112,7 +111,7 @@
     return '<div class="trend" role="img" aria-label="每月回報人數，最近 ' + w + ' 個月每月約 ' + n.recent + ' 人，之前每月約 ' + n.before + ' 人">' + bars + "</div>" +
       '<div class="trend-ax"><span>' + ymAdd(L.trend.start, 0) + "</span><span>最近 " + w + " 個月</span></div>" +
       (L.trend.rising
-        ? '<p class="cmp rise">' + RISE_TAG + "最近 " + w + " 個月每月約 <b>" + n.recent + "</b> 人回報，之前每月約 <b>" + n.before + "</b> 人：<b>最近變多</b>。回報總數還不多，排行不一定排得到，但這裡可能正在變危險（例如附近新開店家、施工改道、新設施擋住視線）。市府端會列在「最近變多」提醒承辦主動看。</p>"
+        ? '<p class="cmp rise">' + RISE_TAG + "最近 " + w + " 個月每月約 <b>" + n.recent + "</b> 人回報，之前每月約 <b>" + n.before + "</b> 人：<b>最近變多</b>。回報總數還不多，排行不一定排得到，但這裡可能正在變危險（例如附近新開店家、施工改道、新設施擋住視線）。這種路口會走<b>快速通道</b>直接送市府（每區每月最多 1 件）。</p>"
         : '<p class="note">最近 ' + w + " 個月每月約 " + n.recent + " 人，之前每月約 " + n.before + " 人。最近 " + w + " 個月的平均達到之前的 " + S.meta.rising.ratio + " 倍、且至少 " + S.meta.rising.min + " 人，就會標示「最近變多」。</p>");
   }
   function refresh(L) {
@@ -326,7 +325,7 @@
   /* ---------------- panel: overview ---------------- */
   function renderOverview() {
     S.sel = null;
-    var counts = { priority: 0, prevent: 0, blind: 0, calm: 0 };
+    var counts = { priority: 0, prevent: 0, calm: 0 };
     S.locs.forEach(function (L) { counts[L.quadrant]++; });
     var totalReports = sum(S.locs.map(function (L) { return L.reports.concern + L.reports.praise; }));
     var pick = function (q, key) {
@@ -335,7 +334,6 @@
     var picks = [
       pick("prevent", function (L) { return L.reports.concern; }),
       pick("priority", function (L) { return L.reports.concern; }),
-      pick("blind", function (L) { return L.real.acc_recent; }),
       pick("calm", function (L) { return L.reports.praise; })
     ].filter(Boolean);
     var html = '<p class="eyebrow">DEMO ・ 中壢火車站周邊</p>' +
@@ -348,8 +346,8 @@
       '<div class="stat"><b>' + fmt(S.meta.accidents_recent) + '</b><span>近三年事故<br><span class="badge real">真實</span></span></div>' +
       '<div class="stat"><b>' + fmt(S.meta.a1_recent) + '</b><span>其中死亡事故<br><span class="badge real">真實</span></span></div>' +
       '<div class="stat"><b>' + fmt(totalReports) + '</b><span>市民回報<br><span class="badge mock">示意</span></span></div></div>' +
-      '<div class="sec"><div class="sec-h"><h3>四種路口</h3><span class="src">事故（真實）× 回報（示意）</span></div><div class="quadgrid">' +
-      ["prevent", "priority", "blind", "calm"].map(function (k) {
+      '<div class="sec"><div class="sec-h"><h3>三種路口</h3><span class="src">事故（真實）× 回報（示意）</span></div><div class="quadgrid">' +
+      ["prevent", "priority", "calm"].map(function (k) {
         var q = QUAD[k];
         return '<button class="qcard" style="--qc:var(' + q.v + ')" data-quad="' + k + '"><b>' + q.name + "</b><span>" + q.desc + "</span><em>" + counts[k] + " 個路口</em></button>";
       }).join("") + "</div></div>" +

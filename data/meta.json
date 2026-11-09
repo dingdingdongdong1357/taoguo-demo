@@ -38,8 +38,7 @@
  "a1_recent": 15,
  "share_recent_at_intersections": 0.298,
  "quadrants": {
-  "priority": 7,
-  "blind": 11,
+  "priority": 18,
   "prevent": 4,
   "calm": 7
  },
@@ -99,9 +98,9 @@
  "repairs": 15,
  "routes": {
   "next": 5,
-  "fast": 3,
-  "none": 15,
-  "district": 6
+  "none": 16,
+  "district": 6,
+  "fast": 2
  },
  "rising": {
   "window": 3,

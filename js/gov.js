@@ -114,7 +114,7 @@
   function risingSec(cases) {
     var list = S.locs.filter(function (L) { return L.trend.rising && !L.improved && cases.indexOf(L) < 0; });
     if (!list.length) return "";
-    return '<div class="sec"><div class="sec-h"><h3>' + U.RISE_TAG + "最近變多（" + list.length + '）</h3><span class="src">不佔名額，提醒主動看</span></div>' +
+    return '<div class="sec"><div class="sec-h"><h3>' + U.RISE_TAG + "最近變多（" + list.length + '）</h3><span class="src">本區快速通道已滿，提醒主動看</span></div>' +
       '<p class="note">回報總數還不多、沒有進入本月名單，但最近 ' + S.meta.rising.window + " 個月突然變多。路口可能正在變危險（新開店家、施工改道、新設施擋視線），建議趁事故累積之前先現勘。</p>" +
       list.map(function (L) {
         var n = U.trendNumbers(L);
@@ -425,7 +425,7 @@
     var tags = [];
     if (L.trend.rising && !L.improved) tags.push('<span class="qtag rise">' + U.RISE_TAG + "最近變多</span>");
     if (L.improved) tags.push('<span class="qtag ok">✓ 已改善</span>');
-    var Q = { priority: "危險", prevent: "潛在危險", blind: "盲點", calm: "安全" };
+    var Q = { priority: "危險", prevent: "潛在危險", calm: "相對安全" };
     tags.push('<span class="qtag">' + Q[L.quadrant] + "</span>");
     var html = '<article class="case quick" id="quick"><header><button class="case-name" data-go="' + L.id + '">' + U.esc(L.name) + '</button><span class="case-meta">' + U.esc(L.district) + "・" + U.esc(L.route === "next" ? "下個月優先" : L.stage) + "</span></header>" +
       '<p class="qtags">' + tags.join("") + '<span class="note">本月沒有送審，承辦主動查看</span></p>' +

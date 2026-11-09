@@ -499,7 +499,8 @@ for L in locations:
     L["improved"] = rp["praise"] > rp["concern"]
     L["care"] = "many" if rp["concern"] >= REPORT_HIGH else "some" if rp["concern"] >= REPORT_SOME else "few"
     q = (L["real"]["level"], rp["level"])
-    L["quadrant"] = {("high", "high"): "priority", ("low", "high"): "prevent", ("high", "low"): "blind", ("low", "low"): "calm"}[q]
+    # 三種：事故多＝危險（不論回報多少，主流事故數據已看得到）；事故少回報多＝潛在危險；兩者都少＝相對安全
+    L["quadrant"] = {("high", "high"): "priority", ("low", "high"): "prevent", ("high", "low"): "priority", ("low", "low"): "calm"}[q]
     L["route"], L["route_reason"] = "none", ""
 # Two ways onto the city's list: each district's own ranking (same quota for every district), and the fast track.
 for dist in sorted({L["district"] for L in locations}):
@@ -509,12 +510,12 @@ for dist in sorted({L["district"] for L in locations}):
     for i, L in enumerate(board[:N_DISTRICT], 1):
         L["route"] = "district"
         L["route_reason"] = f"{dist}本月關心排行第 {i} 名，送市府處理（每區前 {N_DISTRICT} 名）。"
-# Fast track, real: few reports but a fatal crash happened here (open data).
+# 舊規則（死亡事故走快速通道）保留在這裡，只為了讓後面的亂數順序不變、示意數字跟簡報一致；最後會撤銷（見下方「快速通道：最近變多」）。
 low_with_death = sorted([L for L in locations if L["route"] == "none" and L["care"] != "many" and L["real"]["a1_recent"] > 0 and not L["improved"]],
                         key=lambda L: (-L["real"]["acc_recent"], L["id"]))
 for L in low_with_death[:N_FAST_REAL]:
-    L["route"] = "fast"
-    L["route_reason"] = f"回報只有 {L['reports']['concern']} 人，但這裡近三年（{RECENT[0]}–{RECENT[1]}）發生過 {L['real']['a1_recent']} 件死亡事故（真實資料），直接送審。"
+    L["route"] = "fast"; L["_death_fast"] = True
+    L["route_reason"] = ""
 # Fast track, mock: one person reported a collision with a photo.
 for L in locations:  # many people care, but this month's slots are taken
     if L["route"] == "none" and L["care"] == "many":
@@ -589,6 +590,24 @@ for L in locations:
     assert sum(counts) == total
     L["trend"] = {"start": cur["start"], "counts": counts, "rising": rising_of(counts)}
     assert L["trend"]["rising"] == (L["name"] in RISING_IDS), L["name"]
+# 快速通道不看死亡事故（那是主流熱點的範圍）：撤銷舊規則選進來的路口。
+for L in locations:
+    if L.pop("_death_fast", False):
+        L["route"], L["route_reason"] = "none", ""
+        if L["stage"] == "已收到":
+            L["stage"] = "收集中"
+# 快速通道：最近變多（每區每月最多 1 件）。回報總數還少、排行排不到，但正在變危險，直接送審。
+FAST_PER_DISTRICT = 1
+for dist in sorted({L["district"] for L in locations}):
+    cand = sorted([L for L in locations if L["district"] == dist and L["trend"]["rising"] and not L["improved"] and L["route"] in ("none", "next")],
+                  key=lambda L: (-sum(L["trend"]["counts"][-RISING_WINDOW:]), L["id"]))
+    for L in cand[:FAST_PER_DISTRICT]:
+        c = L["trend"]["counts"]; w = RISING_WINDOW
+        before = sum(c[:-w]) / max(1, len(c) - w); recent = sum(c[-w:]) / w
+        L["route"] = "fast"
+        L["route_reason"] = f"回報 {L['reports']['concern']} 人還不多，但最近 {w} 個月每月約 {recent:.1f} 人（之前約 {before:.1f} 人），最近變多，直接送審（每區每月最多 {FAST_PER_DISTRICT} 件）。"
+        if L["stage"] in ("收集中", ""):
+            L["stage"] = "已收到"
 
 (OUT / "locations.json").write_text(json.dumps(locations, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 meta = {
